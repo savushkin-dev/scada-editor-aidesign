@@ -1,3 +1,4 @@
+# parse_lua.py (исправленная версия с кодировкой)
 import json
 import os
 import tkinter as tk
@@ -5,6 +6,25 @@ from tkinter import filedialog
 from lupa import LuaRuntime
 
 OUTPUT_JSON = "output/parsed_lua.json"
+
+
+def read_file_with_encoding(file_path):
+    encodings = ['utf-8', 'cp1251', 'latin-1', 'cp866', 'windows-1251']
+
+    for encoding in encodings:
+        try:
+            with open(file_path, 'r', encoding=encoding) as f:
+                content = f.read()
+            print(f"  📄 Файл прочитан в кодировке: {encoding}")
+            return content
+        except UnicodeDecodeError:
+            continue
+
+    # Если ничего не помогло, читаем в бинарном режиме и игнорируем ошибки
+    with open(file_path, 'rb') as f:
+        content = f.read().decode('utf-8', errors='ignore')
+    print("  ⚠️ Файл прочитан с игнорированием ошибок кодировки")
+    return content
 
 
 def lua_table_to_python(obj):
@@ -40,8 +60,8 @@ def lua_table_to_python(obj):
 def parse_lua_file(lua_path):
     lua = LuaRuntime(unpack_returned_tuples=True)
 
-    with open(lua_path, "r", encoding="utf-8") as f:
-        lua_code = f.read()
+    # Читаем файл с определением кодировки
+    lua_code = read_file_with_encoding(lua_path)
 
     # Выполняем Lua-код
     lua.execute(lua_code)
