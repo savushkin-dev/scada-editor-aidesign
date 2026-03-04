@@ -1,4 +1,4 @@
-# pdf/extract_geometry.py (обновленная версия)
+# pdf/extract_geometry.py
 import fitz
 from typing import List, Dict, Tuple
 import math

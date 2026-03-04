@@ -1,4 +1,4 @@
-# xml_viewer.py (обновленная версия)
+# xml_viewer.py
 import sys
 import xml.etree.ElementTree as ET
 from typing import List, Dict, Tuple, Optional, Set

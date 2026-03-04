@@ -1,4 +1,4 @@
-# parse_lua.py (исправленная версия с кодировкой)
+# parse_lua.py
 import json
 import os
 import tkinter as tk

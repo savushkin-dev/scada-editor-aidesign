@@ -1,4 +1,4 @@
-# parse_lua_objects.py (дополненная версия для шагов)
+# parse_lua_objects.py
 import re
 import json
 import os
