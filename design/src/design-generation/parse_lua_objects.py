@@ -4,7 +4,7 @@ import json
 import os
 from typing import Any, Dict, List, Union
 
-INPUT_LUA_FILE = "input/test/main.objects.lua"
+INPUT_LUA_FILE = "input/test1/main.objects.lua"
 OUTPUT_JSON = "output/parsed_lua_objects.json"
 
 

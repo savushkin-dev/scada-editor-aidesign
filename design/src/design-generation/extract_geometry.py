@@ -1,4 +1,4 @@
-# pdf/extract_geometry.py
+# extract_geometry.py
 import fitz
 from typing import List, Dict, Tuple
 import math
@@ -52,7 +52,6 @@ def extract_text_elements(pdf_path: str) -> List[Dict]:
 
 
 def save_texts_to_xml(texts: List[Dict], output_path: str = "output/texts.xml"):
-    """Сохраняет текстовые элементы в XML"""
     root = ET.Element("TextElements")
 
     for i, text in enumerate(texts):

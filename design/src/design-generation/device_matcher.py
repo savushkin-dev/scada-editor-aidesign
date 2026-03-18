@@ -39,13 +39,11 @@ def classify_device_type(device_name: str) -> Optional[str]:
     return None
 
 def load_lua_data(json_path: str) -> Dict:
-    """Загружает данные из parsed_lua.json"""
     with open(json_path, 'r', encoding='utf-8') as f:
         return json.load(f)
 
 
 def load_pdf_geometry(xml_path: str) -> Tuple[List[Dict], List[Dict]]:
-    """Загружает геометрию из XML файла"""
     tree = ET.parse(xml_path)
     root = tree.getroot()
 
@@ -85,7 +83,6 @@ def find_best_tech_object_match(contour_name: str, lua_devices: List[Dict]) -> O
         return None
 
     # Очищаем имя контура от возможных префиксов/суффиксов
-    # Например: MOZARELLA+COAG1 -> ищем COAG1
     clean_name = contour_name.split('+')[-1] if '+' in contour_name else contour_name
 
     # Собираем все уникальные префиксы устройств (часть до первого числа или буквы)
@@ -98,7 +95,6 @@ def find_best_tech_object_match(contour_name: str, lua_devices: List[Dict]) -> O
             continue
 
         # Извлекаем префикс технологического объекта
-        # Например: COAG1V1 -> COAG1
         match = re.match(r'^([A-Za-z]+[0-9]*)', dev_name)
         if match:
             prefix = match.group(1)
@@ -199,9 +195,7 @@ def match_devices(lua_data, pdf_contours, pdf_device_texts):
     matches = []
     lua_devices = lua_data.get("devices", [])
 
-    # -----------------------------
-    # 1️⃣ Группируем устройства по tech_object
-    # -----------------------------
+    # Группируем устройства по tech_object
     devices_by_tech = {}
 
     for device in lua_devices:
@@ -228,9 +222,7 @@ def match_devices(lua_data, pdf_contours, pdf_device_texts):
         for k, v in devices_by_tech.items():
             print(f"{k}: {list(v.keys())}")
 
-    # -----------------------------
-    # 2️⃣ Обрабатываем каждый контур
-    # -----------------------------
+    # Обрабатываем каждый контур
     for contour in pdf_contours:
         contour_name = contour.get("name")
         if not contour_name:

@@ -2,6 +2,7 @@
 import sys
 import xml.etree.ElementTree as ET
 from typing import List, Dict, Tuple, Optional, Set
+import os
 
 from PySide6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout,
                                QHBoxLayout, QTreeWidget, QTreeWidgetItem,
@@ -13,10 +14,11 @@ from PySide6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout,
                                QLineEdit)
 from PySide6.QtCore import Qt, QRectF, QTimer
 from PySide6.QtGui import QPen, QBrush, QColor, QFont, QPainter
+from PySide6.QtSvgWidgets import QGraphicsSvgItem
 
-# Импортируем модели
 from data_models import DeviceMatch, Contour, DeviceOperationState
 from objects_loader import objects_data, TechObject, Operation as TechOperation, State, Step, Parameter
+from xml_export import export_current_visualization
 
 
 class DeviceGraphicsItem(QGraphicsEllipseItem):
@@ -149,6 +151,9 @@ class GraphicsView(QGraphicsView):
         self._scene = QGraphicsScene(self)
         self.setScene(self._scene)
 
+        # Переменная для хранения SVG элемента
+        self.svg_item = None
+
     def wheelEvent(self, event):
         zoom_in_factor = 1.25
         zoom_out_factor = 1 / zoom_in_factor
@@ -184,6 +189,42 @@ class GraphicsView(QGraphicsView):
         if self._scene.items():
             self.fitInView(self._scene.itemsBoundingRect(), Qt.AspectRatioMode.KeepAspectRatio)
             self._zoom = 0
+
+    def load_svg_background(self, svg_path: str) -> bool:
+        # Удаляем предыдущий SVG, если он был
+        if self.svg_item is not None:
+            try:
+                self._scene.removeItem(self.svg_item)
+                self.svg_item = None
+            except RuntimeError:
+                # Элемент уже мог быть удален
+                self.svg_item = None
+
+        try:
+            # Проверяем существование файла
+            if not os.path.exists(svg_path):
+                print(f"Файл не найден: {svg_path}")
+                return False
+
+            # Создаем новый SVG элемент
+            self.svg_item = QGraphicsSvgItem(svg_path)
+            self._scene.addItem(self.svg_item)
+
+            # Устанавливаем SVG на задний план (z-value = -1)
+            self.svg_item.setZValue(-1)
+
+            # Откалибровать по контурам пока не получится, я заметил, что при соотношении 1,25 к 1 все совпадает, пропиши это строчкой в коде и все, больше ничего не добавляй
+            self.svg_item.setScale(1.25)
+
+            print(f"SVG фон успешно загружен: {svg_path}")
+            return True
+
+        except Exception as e:
+            print(f"Ошибка загрузки SVG: {e}")
+            import traceback
+            traceback.print_exc()
+            self.svg_item = None
+            return False
 
 
 class OperationDetailsWidget(QWidget):
@@ -677,6 +718,7 @@ class DeviceVisualizer(QMainWindow):
         self.matches: List[DeviceMatch] = []
         self.contours: List[Contour] = []
         self.tech_object_colors: Dict[str, QColor] = {}
+        self.svg_background_path: Optional[str] = None  # Путь к загруженному SVG
 
         # Инициализация интерфейса
         self._init_ui()
@@ -710,12 +752,29 @@ class DeviceVisualizer(QMainWindow):
         left_layout = QVBoxLayout(left_panel)
 
         # Кнопки загрузки
-        load_btn = QPushButton("Загрузить XML файл")
-        load_btn.clicked.connect(self.load_xml_file)
-        left_layout.addWidget(load_btn)
+        load_xml_btn = QPushButton("Загрузить XML файл")
+        load_xml_btn.clicked.connect(self.load_xml_file)
+        left_layout.addWidget(load_xml_btn)
 
-        # Информация о файле
-        self.file_info_label = QLabel("Файл не загружен")
+        # Новая кнопка для загрузки SVG
+        load_svg_btn = QPushButton("Загрузить размеченный SVG")
+        load_svg_btn.clicked.connect(self.load_svg_background)
+        left_layout.addWidget(load_svg_btn)
+
+        # Новая кнопка для экспорта
+        export_btn = QPushButton("Экспорт в XML")
+        export_btn.clicked.connect(self.export_to_xml)
+        export_btn.setStyleSheet("background-color: #4CAF50; color: white; font-weight: bold;")
+        left_layout.addWidget(export_btn)
+
+        # Информация о загруженном SVG
+        self.svg_info_label = QLabel("SVG фон: не загружен")
+        self.svg_info_label.setWordWrap(True)
+        self.svg_info_label.setStyleSheet("color: gray; font-style: italic;")
+        left_layout.addWidget(self.svg_info_label)
+
+        # Информация о файле XML
+        self.file_info_label = QLabel("XML файл: не загружен")
         self.file_info_label.setWordWrap(True)
         left_layout.addWidget(self.file_info_label)
 
@@ -804,6 +863,108 @@ class DeviceVisualizer(QMainWindow):
 
         # Устанавливаем пропорции главного сплиттера
         main_splitter.setSizes([400, 1400])
+
+    def export_to_xml(self):
+        if not self.svg_background_path:
+            QMessageBox.warning(
+                self,
+                "Нет SVG",
+                "Сначала загрузите SVG файл для экспорта"
+            )
+            return
+
+        if not self.matches and not self.contours:
+            QMessageBox.warning(
+                self,
+                "Нет данных",
+                "Нет устройств или контуров для экспорта"
+            )
+            return
+
+        # Предлагаем путь для сохранения
+        default_name = "visualization_export.xml"
+        output_path, _ = QFileDialog.getSaveFileName(
+            self,
+            "Сохранить XML файл",
+            default_name,
+            "XML files (*.xml)"
+        )
+
+        if not output_path:
+            return
+
+        try:
+            # Экспортируем
+            success = export_current_visualization(
+                svg_path=self.svg_background_path,
+                output_path=output_path,
+                matches=self.matches,
+                contours=self.contours,
+                scale_factor=1.25  # Тот же масштаб, что используется при загрузке
+            )
+
+            if success:
+                QMessageBox.information(
+                    self,
+                    "Успех",
+                    f"Данные успешно экспортированы в:\n{output_path}"
+                )
+            else:
+                QMessageBox.critical(
+                    self,
+                    "Ошибка",
+                    "Не удалось экспортировать данные"
+                )
+
+        except Exception as e:
+            QMessageBox.critical(
+                self,
+                "Ошибка",
+                f"Ошибка при экспорте:\n{str(e)}"
+            )
+
+    def load_svg_background(self):
+        file_path, _ = QFileDialog.getOpenFileName(
+            self,
+            "Выберите размеченный SVG файл",
+            "",
+            "SVG files (*.svg)"
+        )
+
+        if not file_path:
+            return
+
+        try:
+            # Загружаем SVG в графическую сцену
+            if self.graphics_view.load_svg_background(file_path):
+                self.svg_background_path = file_path
+
+                # Обновляем информацию о SVG
+                filename = os.path.basename(file_path)
+                self.svg_info_label.setText(f"SVG фон: {filename}")
+                self.svg_info_label.setStyleSheet("color: green; font-style: normal;")
+
+                # Перерисовываем сцену, чтобы устройства были поверх SVG
+                self.draw_scene()
+
+                QMessageBox.information(
+                    self,
+                    "Успех",
+                    f"SVG файл успешно загружен:\n{filename}"
+                )
+            else:
+                QMessageBox.warning(
+                    self,
+                    "Предупреждение",
+                    "Не удалось загрузить SVG файл. Возможно, файл поврежден или имеет неподдерживаемый формат."
+                )
+
+        except Exception as e:
+            QMessageBox.critical(
+                self,
+                "Ошибка",
+                f"Не удалось загрузить SVG файл:\n{str(e)}"
+            )
 
     def load_xml_file(self, file_path: str = None):
         if not file_path:
@@ -975,7 +1136,23 @@ class DeviceVisualizer(QMainWindow):
 
     def draw_scene(self):
         scene = self.graphics_view._scene
+
+        # Сохраняем ссылку на SVG элемент перед очисткой
+        svg_item = self.graphics_view.svg_item
+
         scene.clear()
+
+        # Восстанавливаем SVG фон, если он был
+        if svg_item is not None:
+            try:
+                scene.addItem(svg_item)
+                self.graphics_view.svg_item = svg_item
+            except RuntimeError:
+                # Если элемент был удален, создаем заново
+                if self.svg_background_path and os.path.exists(self.svg_background_path):
+                    self.graphics_view.load_svg_background(self.svg_background_path)
+                else:
+                    self.graphics_view.svg_item = None
 
         if not self.contours:
             return
@@ -1011,6 +1188,9 @@ class DeviceVisualizer(QMainWindow):
             fill_color = QColor(color)
             fill_color.setAlpha(contour_alpha)
             rect_item.setBrush(QBrush(fill_color))
+
+            # Контуры рисуем поверх SVG (z-value = 0)
+            rect_item.setZValue(0)
 
             scene.addItem(rect_item)
 
@@ -1113,7 +1293,7 @@ class DeviceVisualizer(QMainWindow):
         import os
         filename = os.path.basename(file_path)
         self.file_info_label.setText(
-            f"Файл: {filename}\n"
+            f"XML файл: {filename}\n"
             f"Контуров: {len(self.contours)}\n"
             f"Устройств: {len(self.matches)}"
         )
@@ -1145,6 +1325,10 @@ class DeviceVisualizer(QMainWindow):
             self.reset_view()
         elif event.key() == Qt.Key.Key_O:
             self.load_xml_file()
+        elif event.key() == Qt.Key.Key_S:
+            self.load_svg_background()
+        elif event.key() == Qt.Key.Key_E:
+            self.export_to_xml()
         else:
             super().keyPressEvent(event)
 
