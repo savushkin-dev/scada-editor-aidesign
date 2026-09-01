@@ -1,8 +1,7 @@
 # extract_geometry.py
 import fitz
-from typing import List, Dict, Tuple
+from typing import List, Dict, Tuple, Optional
 import math
-import xml.etree.ElementTree as ET
 
 Point = Tuple[float, float]
 Segment = Dict[str, object]
@@ -16,9 +15,31 @@ def is_dashed(dash_str: str) -> bool:
     return bool(dash_str and dash_str.strip() and '[' in dash_str and dash_str.split(']')[0].replace('[', '').strip())
 
 
-def extract_line_segments(pdf_path: str) -> List[Segment]:
+def _pages(doc, page_number: Optional[int]):
+    # page_number=None — все страницы (прежнее поведение),
+    # иначе только указанная. Нужно, чтобы геометрия и разметка
+    # относились к одной и той же странице многостраничного PDF.
+    if page_number is None:
+        return doc
+    if 0 <= page_number < len(doc):
+        return [doc[page_number]]
+
+    # У обрезанного файла страниц ноль, и «нет страницы 0 (всего 0)» звучит
+    # как придирка к номеру, хотя дело в самом файле
+    if not len(doc):
+        raise IndexError("В файле нет ни одной страницы — он повреждён "
+                         "или выгрузился не полностью.")
+    raise IndexError(f"В PDF нет страницы {page_number + 1} — в файле их {len(doc)}.")
+
+
+def page_count(pdf_path: str) -> int:
+    with fitz.open(pdf_path) as doc:
+        return len(doc)
+
+
+def extract_line_segments(pdf_path: str, page_number: Optional[int] = None) -> List[Segment]:
     segments, doc = [], fitz.open(pdf_path)
-    for page in doc:
+    for page in _pages(doc, page_number):
         for d in page.get_drawings():
             dashed = is_dashed(d.get("dashes"))
             for item in d["items"]:
@@ -32,12 +53,13 @@ def extract_line_segments(pdf_path: str) -> List[Segment]:
     return segments
 
 
-def extract_text_elements(pdf_path: str) -> List[Dict]:
+def extract_text_elements(pdf_path: str, page_number: Optional[int] = None) -> List[Dict]:
     doc, texts = fitz.open(pdf_path), []
-    for page in doc:
+    for page in _pages(doc, page_number):
         for block in page.get_text("dict")["blocks"]:
             if "lines" in block:
-                for span in [s for l in block["lines"] for s in l["spans"] if s["text"].strip()]:
+                for span in [s for line in block["lines"]
+                             for s in line["spans"] if s["text"].strip()]:
                     bbox = span["bbox"]
                     texts.append({
                         "text": span["text"].strip(),
@@ -51,21 +73,3 @@ def extract_text_elements(pdf_path: str) -> List[Dict]:
     return texts
 
 
-def save_texts_to_xml(texts: List[Dict], output_path: str = "output/texts.xml"):
-    root = ET.Element("TextElements")
-
-    for i, text in enumerate(texts):
-        text_elem = ET.SubElement(root, "Text", id=str(i))
-        text_elem.set("content", text["text"])
-        text_elem.set("x", f"{text['center'][0]:.3f}")
-        text_elem.set("y", f"{text['center'][1]:.3f}")
-        text_elem.set("page", str(text["page"]))
-
-        bbox = ET.SubElement(text_elem, "BBox")
-        bbox.set("x1", f"{text['bbox'][0]:.3f}")
-        bbox.set("y1", f"{text['bbox'][1]:.3f}")
-        bbox.set("x2", f"{text['bbox'][2]:.3f}")
-        bbox.set("y2", f"{text['bbox'][3]:.3f}")
-
-    tree = ET.ElementTree(root)
-    tree.write(output_path, encoding="utf-8", xml_declaration=True)

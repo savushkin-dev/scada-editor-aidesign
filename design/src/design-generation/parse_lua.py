@@ -1,3 +1,5 @@
+import console_utils  # noqa: F401  (настройка кодировки вывода)
+import config
 # parse_lua.py
 import json
 import os
@@ -5,7 +7,7 @@ import tkinter as tk
 from tkinter import filedialog
 from lupa import LuaRuntime
 
-OUTPUT_JSON = "output/parsed_lua.json"
+OUTPUT_JSON = str(config.PARSED_LUA_JSON)
 
 
 def read_file_with_encoding(file_path):
@@ -81,20 +83,66 @@ def parse_lua_file(lua_path):
         "devices": lua_table_to_python(devices)
     }
 
+    # Рядом может лежать shared.lua — обмен сигналами с соседними
+    # контроллерами. Файл необязательный: нет его — ничего не меняется.
+    # Импорт здесь, а не наверху: parse_lua_shared сам читает из этого модуля
+    import parse_lua_shared
+
+    parse_lua_shared.attach(parsed, [lua_path])
+
     return parsed
 
 
-def merge_lua_data(data_list):
-    merged = {
-        "nodes": [],
-        "devices": []
-    }
+def _is_empty(value):
+    # Ноль и False — это значения, а не пустота: subtype 0 затирать нечем
+    return value is None or value == "" or value == [] or value == {}
 
-    for file_data in data_list:
-        merged["nodes"].extend(file_data["nodes"])
-        merged["devices"].extend(file_data["devices"])
+
+def _merge_records(records):
+    # Записи с одним именем сливаются в одну: первая главная, последующие
+    # дополняют её пустые поля. Записи без имени опознать нельзя — идут как есть.
+    merged, by_name = [], {}
+
+    for record in records:
+        name = record.get("name") if isinstance(record, dict) else None
+        if not name:
+            merged.append(record)
+            continue
+
+        first = by_name.get(name)
+        if first is None:
+            by_name[name] = dict(record)
+            merged.append(by_name[name])
+            continue
+
+        for key, value in record.items():
+            if _is_empty(first.get(key)) and not _is_empty(value):
+                first[key] = value
 
     return merged
+
+
+def merge_lua_data(data_list):
+    """Объединяет разбор нескольких файлов Lua в один набор.
+
+    Раньше списки просто склеивались. Но одно и то же устройство описано
+    в нескольких файлах сразу: в проекте mozzarella main.io.lua и
+    main.wago.lua дают 730 + 568 = 1298 записей при 771 разном имени —
+    527 повторов, узлов 13 при семи. Приложение отчитывалось о вдвое
+    большем хозяйстве, чем есть, а отчёт о расхождениях показывал одно
+    и то же устройство дважды.
+
+    Повторы почти всегда совпадают побайтово (514 из 527). В остальных
+    тринадцати различается одно поле, и полнее оно в первом файле:
+    артикул «SE.XB4BS8445» против «XB4BS8445». У узлов та же картина —
+    в main.io.lua на модуль больше. Поэтому первое описание главное,
+    последующие лишь дополняют его пустые поля.
+    """
+    return {
+        "nodes": _merge_records([node for data in data_list for node in data["nodes"]]),
+        "devices": _merge_records([device for data in data_list
+                                   for device in data["devices"]]),
+    }
 
 
 def main():
@@ -145,7 +193,7 @@ def main():
         json.dump(merged_data, f, indent=2, ensure_ascii=False)
 
     print(f"\n✅ Обработано файлов: {successful_files}/{len(lua_files)}")
-    print(f"📊 Итоговая статистика:")
+    print("📊 Итоговая статистика:")
     print(f"  Всего IO узлов: {len(merged_data['nodes'])}")
     print(f"  Всего устройств: {len(merged_data['devices'])}")
     print(f"💾 Сохранено: {OUTPUT_JSON}")

@@ -1,0 +1,53 @@
+# --- Виртуальное окружение (несколько ГБ: torch, PySide6) ---
+.venv/
+.venv-*/
+venv/
+env/
+
+# --- Python ---
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+
+# --- IDE ---
+.idea/
+.vscode/
+
+# --- Крупные архивы ---
+*.rar
+*.zip
+
+# --- Результаты обучения YOLO (кроме используемой модели train2/best.pt) ---
+design/src/design-generation/runs/*
+!design/src/design-generation/runs/detect/
+design/src/design-generation/runs/detect/*
+!design/src/design-generation/runs/detect/train2/
+design/src/design-generation/runs/detect/train2/*
+!design/src/design-generation/runs/detect/train2/weights/
+design/src/design-generation/runs/detect/train2/weights/*
+!design/src/design-generation/runs/detect/train2/weights/best.pt
+
+# --- Сгенерированные данные (пересоздаются из Lua/PDF) ---
+output/
+design/src/design-generation/output/
+temp_geometry.xml
+
+# --- Исходные материалы: чертежи Eplan, выгрузки контроллера, библиотеки
+# фигур, эталоны экспорта. Лежат рядом с кодом и в репозиторий не входят ---
+doc/
+
+# --- Артефакты экспорта в корне ---
+/visualization_export*.xml
+
+# --- Прочее ---
+*.log
+
+# Замер покрытия
+.coverage
+.coverage.*
+htmlcov/
+
+# Следы компилятора ядер Intel при опытах с OpenVINO на графике
+kernel.errors.txt

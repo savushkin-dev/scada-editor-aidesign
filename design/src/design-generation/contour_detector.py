@@ -1,11 +1,10 @@
+import console_utils  # noqa: F401  (настройка кодировки вывода)
+import config
 import tkinter as tk
 from tkinter import filedialog
 import xml.etree.ElementTree as ET
-import matplotlib.pyplot as plt
-from matplotlib.patches import Rectangle
 import math
 from collections import defaultdict
-from typing import List, Dict, Tuple, Optional
 import json
 import os
 
@@ -13,13 +12,9 @@ from extract_geometry import extract_line_segments, extract_text_elements
 from segment_data import SegmentData, ClosedContour
 
 
-TOLERANCE = 0.5
-LUA_JSON_PATH = "output/parsed_lua_objects.json"
+TOLERANCE = config.CONTOUR_POINT_TOLERANCE
+LUA_JSON_PATH = str(config.PARSED_LUA_OBJECTS_JSON)
 
-
-# =========================
-# LUA DATA
-# =========================
 
 def load_lua_data():
     try:
@@ -79,9 +74,6 @@ def find_best_lua_match(candidate, lua_names):
     return None
 
 
-# =========================
-# UTILS
-# =========================
 
 def choose_pdf():
     root = tk.Tk()
@@ -159,6 +151,64 @@ def point_inside_contour(point, contour_segments):
     return intersections%2==1
 
 
+def point_over_contour(point, bounds):
+    """Точка лежит над контуром, под ним, сбоку или внутри — не по диагонали.
+
+    Иначе говоря, она попадает хотя бы в одну из двух полос контура:
+    вертикальную (по ширине) или горизонтальную (по высоте). Точка,
+    не попавшая ни в одну, стоит от угла и подписью этого контура быть
+    не может, каким бы малым ни оказалось расстояние до угла.
+    """
+    x,y = point
+    min_x,min_y,max_x,max_y = bounds
+    span = config.CONTOUR_NAME_SPAN_TOLERANCE
+
+    return ((min_x-span <= x <= max_x+span)
+            or (min_y-span <= y <= max_y+span))
+
+
+def point_in_bounds(point, bounds):
+    x,y = point
+    min_x,min_y,max_x,max_y = bounds
+    span = config.CONTOUR_NAME_SPAN_TOLERANCE
+
+    return (min_x-span <= x <= max_x+span) and (min_y-span <= y <= max_y+span)
+
+
+def bounds_area(bounds):
+    return (bounds[2]-bounds[0])*(bounds[3]-bounds[1])
+
+
+def enclosing_bounds(contours):
+    """Для каждого контура — рамка ближайшего охватывающего его контура.
+
+    Вложенность считается с тем же допуском, что и попадание в полосу:
+    рамка внутри блока нередко выступает за его кромку на пару пунктов.
+    """
+    span = config.CONTOUR_NAME_SPAN_TOLERANCE
+    parents = []
+
+    for inner in contours:
+        best = None
+
+        for outer in contours:
+            if outer is inner:
+                continue
+            if bounds_area(outer.bounds) <= bounds_area(inner.bounds):
+                continue
+            if not (outer.bounds[0]-span <= inner.bounds[0]
+                    and outer.bounds[1]-span <= inner.bounds[1]
+                    and inner.bounds[2] <= outer.bounds[2]+span
+                    and inner.bounds[3] <= outer.bounds[3]+span):
+                continue
+            if best is None or bounds_area(outer.bounds) < bounds_area(best):
+                best = outer.bounds
+
+        parents.append(best)
+
+    return parents
+
+
 # Распознавание контуров
 
 def find_contours(segments):
@@ -167,36 +217,27 @@ def find_contours(segments):
     visited=set()
 
     for i,s in enumerate(segments):
-
         if s.dashed:
-
             p1=normalize(s.p1)
             p2=normalize(s.p2)
-
             graph[p1].append((p2,i))
             graph[p2].append((p1,i))
 
     contours=[]
 
     for start in graph:
-
         if start in visited or len(graph[start])!=2:
             continue
 
         curr=start
         prev=None
-
         cyc=[]
 
         while True:
-
             for nxt,eid in graph[curr]:
-
                 if eid!=prev and eid not in visited:
-
                     visited.add(eid)
                     cyc.append(eid)
-
                     prev=eid
                     curr=nxt
                     break
@@ -204,15 +245,11 @@ def find_contours(segments):
                 break
 
             if points_equal(curr,start) and len(cyc)>=3:
-
                 pts=[p for i in cyc for p in [segments[i].p1,segments[i].p2]]
-
                 xs=[p[0] for p in pts]
                 ys=[p[1] for p in pts]
-
                 minx,maxx=min(xs),max(xs)
                 miny,maxy=min(ys),max(ys)
-
                 contours.append(
                     ClosedContour(
                         segments=cyc,
@@ -220,7 +257,6 @@ def find_contours(segments):
                         center=((minx+maxx)/2,(miny+maxy)/2)
                     )
                 )
-
                 break
 
     return contours
@@ -240,30 +276,50 @@ def find_all_contour_names_by_proximity(contours,
         key=lambda c:(c.bounds[2]-c.bounds[0])*(c.bounds[3]-c.bounds[1])
     )
 
+    # Рамка, внутри которой сидит контур. Вложенный контур вправе брать
+    # только те подписи, что лежат внутри его же блока: Eplan ставит
+    # обозначение блока вплотную к его кромке, но никогда не за пределами
+    # объемлющего блока. На листе 14 подпись «+LINE_M4» стоит в 25 пт правее
+    # своего блока и в 43 пт левее тесной рамки, вложенной в соседний блок
+    # LINE_M6, — рамка забирала подпись себе (её разбирают раньше, она
+    # меньше), и семь сигналов LINE_M4 не сопоставлялись вовсе.
+    enclosing = enclosing_bounds(contours)
+    parents = {id(c): enclosing[i] for i, c in enumerate(contours)}
+
     used_texts=set()
 
     print("\nПОИСК ИМЕН КОНТУРОВ (Lua приоритет)")
 
     for contour in sorted_contours:
-
         contour_segments=[segments[i] for i in contour.segments]
-
+        parent=parents[id(contour)]
         candidates=[]
 
         for j,t in enumerate(texts):
-
             if j in used_texts:
                 continue
-
             if '+' not in t["text"]:
                 continue
-
             name=parse_text_for_contour_name(t["text"])
-
             if not name:
                 continue
 
             tx,ty=t["center"]
+
+            # Подпись стоит над контуром, под ним или сбоку — но не по
+            # диагонали от угла. Мера расстояния берёт ближайший отрезок,
+            # и до угла тесной рамки выходит меньше порога, хотя подпись
+            # не над ней: на листе 5 квадратик «-Y1» внутри шкафа забирал
+            # себе «+CAB2» (71 пт левее рамки и 16 пт выше неё), а контуры
+            # разбираются от меньшего к большему, поэтому сам шкаф — та же
+            # подпись в 4 пт над его кромкой — оставался безымянным, и три
+            # его устройства (DI2, SB1, G1) не сопоставлялись вовсе. То же
+            # с CAB3: на весь проект это шесть устройств из 245.
+            if not point_over_contour((tx,ty),contour.bounds):
+                continue
+
+            if parent is not None and not point_in_bounds((tx,ty),parent):
+                continue
 
             min_dist=min(
                 point_to_line_distance((tx,ty),seg.p1,seg.p2)
@@ -289,15 +345,15 @@ def find_all_contour_names_by_proximity(contours,
                 score*=0.8
 
             candidates.append(
-                dict(
-                    idx=j,
-                    name=name,
-                    lua=lua_match,
-                    pos=(tx,ty),
-                    dist=min_dist,
-                    score=score,
-                    inside=inside
-                )
+                {
+                    'idx': j,
+                    'name': name,
+                    'lua': lua_match,
+                    'pos': (tx,ty),
+                    'dist': min_dist,
+                    'score': score,
+                    'inside': inside
+                }
             )
 
         if not candidates:
