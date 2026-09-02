@@ -20,10 +20,10 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from PySide6.QtWidgets import QApplication
 
-import console_utils  # noqa: F401  (кодировка вывода, как в точках входа)
-import details_panel
-from data_models import DeviceMatch
-from objects_loader import objects_data
+from contur.core import console_utils  # noqa: F401  (кодировка вывода, как в точках входа)
+from contur.ui import details_panel
+from contur.core.data_models import DeviceMatch
+from contur.lua.objects_loader import objects_data
 
 # Описание объектов в том виде, в каком его отдаёт среда разработки
 # контроллера: техобъект с операциями, состояния отдельным списком,

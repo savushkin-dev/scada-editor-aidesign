@@ -21,9 +21,9 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-import config
-import console_utils  # noqa: F401  (кодировка вывода, как в точках входа)
-from device_matcher import DEVICE_TYPES
+from contur.core import config
+from contur.core import console_utils  # noqa: F401  (кодировка вывода, как в точках входа)
+from contur.matching.device_matcher import DEVICE_TYPES
 
 # Все проекты контроллеров, какие есть под рукой
 PROJECTS = {
@@ -40,7 +40,7 @@ PATTERN = rf"^(.*?){DEVICE_TYPES}\d+$"
 
 
 def _devices(path: Path):
-    from parse_lua import parse_lua_file
+    from contur.lua.parse_lua import parse_lua_file
 
     return [device.get("name", "")
             for device in parse_lua_file(str(path)).get("devices", [])

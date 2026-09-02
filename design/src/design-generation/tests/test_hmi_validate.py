@@ -12,8 +12,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-import console_utils  # noqa: F401  (кодировка вывода, как в точках входа)
-from hmi_validate import GRID, format_report, validate
+from contur.core import console_utils  # noqa: F401  (кодировка вывода, как в точках входа)
+from contur.export.hmi_validate import GRID, format_report, validate
 
 
 def _element(kind, key, **fields):

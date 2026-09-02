@@ -16,8 +16,8 @@ from pathlib import Path
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-import config
-from data_models import DeviceBox
+from contur.core import config
+from contur.core.data_models import DeviceBox
 
 TEST_PDF = config.INPUT_DIR / "test" / "BN1-Растворение-3.pdf"
 
@@ -30,7 +30,7 @@ def _app():
 def test_threads_accept_page_number():
     # Потоки обязаны знать страницу: без неё на многостраничном файле
     # в обработку попадают данные со всех страниц сразу
-    from workers import DeviceMatchingThread, GeometryExtractionThread, YOLOMarkingThread
+    from contur.ui.workers import DeviceMatchingThread, GeometryExtractionThread, YOLOMarkingThread
     _app()
 
     matching = DeviceMatchingThread("lua.json", "file.pdf", "geom.xml", 3)
@@ -44,7 +44,7 @@ def test_threads_accept_page_number():
 
 
 def test_matching_thread_default_page():
-    from workers import DeviceMatchingThread
+    from contur.ui.workers import DeviceMatchingThread
     _app()
     assert DeviceMatchingThread("lua.json", "file.pdf", "geom.xml").page_number == 0
 
@@ -56,7 +56,7 @@ def test_gui_markup_generates_complete_svg():
         return
 
     import fitz
-    from workers import YOLOMarkingThread
+    from contur.ui.workers import YOLOMarkingThread
     _app()
 
     with fitz.open(TEST_PDF) as doc:
@@ -90,8 +90,8 @@ def test_matched_xml_serializes_numeric_fields():
     # subtype и dtype приходят из Lua числами: ElementTree падает на них
     # при записи файла («cannot serialize 13 (type int)»)
     import tempfile
-    from data_models import DeviceMatch
-    from device_matcher import generate_output_xml
+    from contur.core.data_models import DeviceMatch
+    from contur.matching.device_matcher import generate_output_xml
 
     match = DeviceMatch(lua_name="TANK1V1", pdf_name="V1", tech_object="TANK1",
                         coordinates=(10.0, 20.0), confidence=1.0,
@@ -115,7 +115,7 @@ def test_png_size_matches_real_render():
         return
 
     import fitz
-    from workers import YOLOMarkingThread
+    from contur.ui.workers import YOLOMarkingThread
     _app()
 
     with fitz.open(TEST_PDF) as doc:
@@ -134,7 +134,7 @@ def test_model_is_not_imported_at_startup():
     # Проверка запускается отдельным процессом: в текущем torch мог загрузиться
     # раньше, из другой проверки
     import subprocess
-    code = ("import sys; import xml_viewer; "
+    code = ("import sys; from contur.ui import main_window; "
             "print('torch' in sys.modules or 'ultralytics' in sys.modules)")
     env = dict(os.environ, QT_QPA_PLATFORM="offscreen")
     out = subprocess.run([sys.executable, "-c", code], capture_output=True,
@@ -149,7 +149,7 @@ def test_middle_button_name_exists():
     # бросало AttributeError на каждое отпускание кнопки мыши
     from PySide6.QtCore import Qt
     assert hasattr(Qt.MouseButton, "MiddleButton")
-    import widgets
+    from contur.ui import widgets
     source = Path(widgets.__file__).read_text(encoding="utf-8")
     assert "MouseButton.MidButton" not in source
 

@@ -13,13 +13,13 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-import config
-from contour_detector import (find_all_contour_names_by_proximity, find_contours,
+from contur.core import config
+from contur.pdf.contour_detector import (find_all_contour_names_by_proximity, find_contours,
                               point_over_contour)
-from data_models import DeviceBox
-from pdf_processor import DeviceDetector, DeviceLabeler
-from segment_data import SegmentData
-from svg_geometry import (_flatten_cubic, _path_points, detect_coordinate_system,
+from contur.core.data_models import DeviceBox
+from contur.pdf.pdf_processor import DeviceDetector, DeviceLabeler
+from contur.core.segments import SegmentData
+from contur.pdf.svg_geometry import (_flatten_cubic, _path_points, detect_coordinate_system,
                           get_svg_dimensions,
                           parse_absolute_length, segment_box_overlap, tolerance_scale)
 
@@ -70,7 +70,7 @@ def _curve_gap(p0, c1, c2, p3, points) -> float:
     # Наибольшее расстояние от кривой до ломаной
     import math
 
-    from svg_geometry import _cubic_point
+    from contur.pdf.svg_geometry import _cubic_point
 
     worst = 0.0
     for i in range(len(points) - 1):

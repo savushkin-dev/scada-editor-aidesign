@@ -19,8 +19,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-import console_utils  # noqa: F401  (кодировка вывода, как в точках входа)
-from parse_lua import merge_lua_data
+from contur.core import console_utils  # noqa: F401  (кодировка вывода, как в точках входа)
+from contur.lua.parse_lua import merge_lua_data
 
 MOZZARELLA = Path(__file__).resolve().parent.parent.parent / "mozzarella_master_01"
 
@@ -106,7 +106,7 @@ def test_mozzarella_two_files_give_unique_devices():
     if not (io_lua.exists() and wago_lua.exists()):
         return
 
-    from parse_lua import parse_lua_file
+    from contur.lua.parse_lua import parse_lua_file
 
     merged = merge_lua_data([parse_lua_file(str(io_lua)), parse_lua_file(str(wago_lua))])
     names = [d.get("name") for d in merged["devices"]]

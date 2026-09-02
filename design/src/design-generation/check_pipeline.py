@@ -9,8 +9,8 @@
 #
 # Этап экспорта выполняется, только если передан --svg с размеченным SVG
 # (его создаёт разметка YOLO).
-import console_utils  # noqa: F401  (настройка кодировки вывода)
-import config
+from contur.core import console_utils  # noqa: F401  (настройка кодировки вывода)
+from contur.core import config
 
 import argparse
 import contextlib
@@ -21,8 +21,8 @@ import time
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
-import golden
-import xml_io
+from contur.core import golden
+from contur.export import xml_io
 
 DEFAULT_PDF = config.INPUT_DIR / "test1" / "BN1-МОЛОКОХРАНИЛИЩЕ-2025Full-4.pdf"
 DEFAULT_IO_LUA = config.INPUT_DIR / "test1" / "main.io.lua"
@@ -75,7 +75,7 @@ def measure_startup(attempts: int = 5) -> float:
     import os
     import subprocess
 
-    code = "import time; t = time.perf_counter(); import xml_viewer; print(time.perf_counter() - t)"
+    code = "import time; t = time.perf_counter(); from contur.ui import main_window; print(time.perf_counter() - t)"
     env = dict(os.environ, QT_QPA_PLATFORM="offscreen")
     results = []
     for _ in range(attempts):
@@ -177,12 +177,12 @@ def main() -> int:
             print((result.stdout or result.stderr or "")[-1500:])
     print()
 
-    from parse_lua import parse_lua_file
-    from parse_lua_objects import parse_objects_file, extract_all_data
-    from extract_geometry import extract_line_segments, extract_text_elements, page_count
-    from segment_data import SegmentData
-    from contour_detector import find_contours, find_all_contour_names_by_proximity, gen_xml
-    from device_matcher import (load_lua_data, extract_lua_names, load_pdf_geometry,
+    from contur.lua.parse_lua import parse_lua_file
+    from contur.lua.parse_lua_objects import parse_objects_file, extract_all_data
+    from contur.pdf.extract_geometry import extract_line_segments, extract_text_elements, page_count
+    from contur.core.segments import SegmentData
+    from contur.pdf.contour_detector import find_contours, find_all_contour_names_by_proximity, gen_xml
+    from contur.matching.device_matcher import (load_lua_data, extract_lua_names, load_pdf_geometry,
                                 find_pdf_device_texts, match_devices,
                                 build_match_report, format_match_report,
                                 sheet_object_from_texts)
@@ -195,7 +195,7 @@ def main() -> int:
         # вместе с main.wago.lua и объединяет их. Проверка брала только один,
         # и на проекте mozzarella из 1298 устройств видела 730 — все COAG1*
         # с проверяемого листа лежали во втором файле.
-        from parse_lua import merge_lua_data
+        from contur.lua.parse_lua import merge_lua_data
 
         data = merge_lua_data([parse_lua_file(path) for path in args.io_lua])
         with open(config.PARSED_LUA_JSON, "w", encoding="utf-8") as f:
@@ -205,7 +205,7 @@ def main() -> int:
         return f"узлов: {len(data['nodes'])}, устройств: {len(data['devices'])}"
 
     def parse_objects():
-        from objects_loader import objects_data
+        from contur.lua.objects_loader import objects_data
 
         data = extract_all_data(parse_objects_file(args.objects_lua))
         with open(config.PARSED_LUA_OBJECTS_JSON, "w", encoding="utf-8") as f:
@@ -294,8 +294,8 @@ def main() -> int:
             print(f"  [СБОЙ] нет SVG: {args.svg}")
             failures.append(f"нет SVG: {args.svg}")
         else:
-            from data_models import Contour
-            from xml_export import export_current_visualization, get_pdf_page_size
+            from contur.core.data_models import Contour
+            from contur.export.xml_export import export_current_visualization, get_pdf_page_size
 
             export_contours = [Contour(name=c.name, bounds=c.bounds, center=c.center,
                                        tech_object=c.name) for c in contours if c.name]
@@ -307,7 +307,7 @@ def main() -> int:
 
             if ok:
                 # Показатели качества самой разметки
-                from svg_geometry import (build_pipelines, detect_coordinate_system,
+                from contur.pdf.svg_geometry import (build_pipelines, detect_coordinate_system,
                                           detected_device_count, named_device_count,
                                           extract_line_segments, find_junction_points,
                                           format_markup_report, get_svg_dimensions,
@@ -385,7 +385,7 @@ def main() -> int:
                 # Второй канал выдачи. Проверки на синтетическом листе есть
                 # (tests/test_json_export.py), но разъехаться каналы могут
                 # как раз на настоящем — здесь сверяется тот же лист
-                from json_export import export_current_visualization_json
+                from contur.export.json_export import export_current_visualization_json
 
                 output_json = config.OUTPUT_DIR / "_check_export.json"
                 if step("экспорт в JSON", lambda: export_current_visualization_json(
@@ -415,7 +415,7 @@ def main() -> int:
                 # проект. Здесь важно не содержание, а что файл вообще
                 # пригоден: плоский массив, числовые координаты, свой ключ
                 # у каждого элемента
-                from hmi_export import export_current_visualization_hmi
+                from contur.export.hmi_export import export_current_visualization_hmi
 
                 output_hmi = config.OUTPUT_DIR / "_check_export_hmi.json"
                 if step("экспорт для редактора", lambda: export_current_visualization_hmi(
@@ -501,7 +501,7 @@ def main() -> int:
 
                     # Самопроверка по спецификации импорта (§10): файл
                     # читается с диска ровно так, как его прочитает редактор
-                    import hmi_validate
+                    from contur.export import hmi_validate
 
                     remarks, drawing_stats = hmi_validate.validate(elements)
                     metrics["чертёж_короче_клетки"] = drawing_stats["короткие_отрезки"]

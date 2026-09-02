@@ -26,8 +26,8 @@ if CATALOGUE.exists():
 datas += collect_data_files('ultralytics')
 
 a = Analysis(
-    ['xml_viewer.py'],
-    pathex=[],
+    ['main.py'],
+    pathex=['.'],
     binaries=[],
     datas=datas,
     # lupa при импорте сама перебирает файлы своей папки, выбирая самую
@@ -37,7 +37,7 @@ a = Analysis(
     #     FileNotFoundError: [WinError 3] ... '_internal\\lupa'
     # То есть разбор Lua в собранном виде не работал вовсе.
     hiddenimports=(collect_submodules('ultralytics') + collect_submodules('lupa')
-                   + ['workers', 'widgets']),
+                   + collect_submodules('contur')),
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],

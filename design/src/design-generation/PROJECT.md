@@ -41,50 +41,80 @@
 выгрузки контроллеров, библиотеки фигур, эталоны экспорта) держат рядом,
 в папке `doc`: они весят гигабайты и в репозиторий не входят.
 
+Код собран в пакет `contur`, подпапки которого идут по ходу конвейера: `pdf`
+разбирает чертёж, `lua` — описание контроллера, `matching` связывает одно
+с другим, `export` отдаёт результат, `ui` показывает его в окне. `core` —
+общий фундамент, он ни от кого не зависит. Зависимости направлены только
+вниз по этому списку, циклов между слоями нет.
+
 ```
 <папка модуля>/
-├── xml_viewer.py           #   точка входа: главное окно, оркестрация, экспорт
-├── workers.py              # ★ фоновые потоки этапов конвейера
-├── widgets.py              # ★ виджеты и графические элементы интерфейса
-├── config.py               # ★ все настройки и пути (переопределяются env-переменными)
-├── app_settings.py         # ★ что помнится между запусками (QSettings): окно, папки, сеанс
-├── console_utils.py        # ★ UTF-8 вывод; заглушка stdout для сборки без консоли
-├── svg_geometry.py         # ★ общая геометрия SVG: сегменты, точки сопряжения, трубы
-├── markup_cache.py         # ★ кэш размеченных SVG (разметка ~88 с -> 0 с)
+├── main.py                 #   точка входа: запуск окна
 ├── check_pipeline.py       # ★ прогон конвейера без GUI + тесты + проверки результата
 ├── batch_process.py        # ★ пакетная обработка всех страниц PDF
-├── tests/                  # ★ 526 проверок: геометрия, выгрузка, конвейер GUI, схемы, окно
+│
+├── contur/core/            #   фундамент: ни от кого не зависит
+│   ├── config.py           # ★ все настройки и пути (переопределяются env-переменными)
+│   ├── data_models.py      #   dataclass-модели (DeviceMatch, Contour, Operation…), без Qt
+│   ├── segments.py         #   dataclass SegmentData / ClosedContour
+│   ├── errors.py           #   понятные сообщения об ошибках
+│   ├── console_utils.py    # ★ UTF-8 вывод; заглушка stdout для сборки без консоли
+│   └── golden.py           # ★ эталонные показатели контрольного листа
+│
+├── contur/pdf/             #   чертёж: из PDF в размеченный SVG и геометрию
+│   ├── extract_geometry.py #   извлечение линий и текстов из PDF (PyMuPDF)
+│   ├── pdf_processor.py    #   PDF → PNG → YOLO → размеченный SVG (+ класс DeviceDetector)
+│   ├── contour_detector.py #   поиск замкнутых контуров + их именование
+│   ├── svg_geometry.py     # ★ общая геометрия SVG: сегменты, точки сопряжения, трубы
+│   └── markup_cache.py     # ★ кэш размеченных SVG (разметка ~88 с -> 0 с)
+│
+├── contur/lua/             #   описание контроллера из EPlanner
+│   ├── parse_lua.py        #   разбор main.io.lua (nodes + devices) через lupa
+│   ├── parse_lua_objects.py #  разбор main.objects.lua (тоже через lupa)
+│   ├── parse_lua_shared.py # ★ обмен с соседними контроллерами из shared.lua
+│   └── objects_loader.py   #   загрузка parsed_lua_objects.json в объектную модель
+│
+├── contur/matching/        #   связывание чертежа с логикой контроллера
+│   ├── device_matcher.py   #   сопоставление Lua-устройств с текстами внутри контуров
+│   └── device_dossier.py   # ★ досье устройства: состояния, техобъект, соседи по трубам
+│
+├── contur/export/          #   выгрузка результата
+│   ├── export_scene.py     # ★ общая подготовка выгрузки: координаты, точки, трубы
+│   ├── exporters.py        # ★ выбор формата выгрузки по расширению файла
+│   ├── hmi_export.py       # ★ формат редактора мнемосхем: плоский массив элементов
+│   ├── hmi_symbols.py      # ★ готовые фигуры библиотеки редактора и выбор по типу
+│   ├── hmi_validate.py     # ★ приёмка файла по спецификации импорта
+│   ├── json_export.py      # ★ тот же состав в JSON (PlantGeometry 1.3)
+│   ├── xml_export.py       #   экспорт визуализации в XML (PlantGeometry 1.3)
+│   ├── xml_io.py           #   чтение своего XML обратно
+│   └── postgres_export.py  #   экспорт того же в PostgreSQL
+│
+├── contur/ui/              #   окно приложения
+│   ├── main_window.py      #   главное окно, оркестрация, экспорт
+│   ├── workers.py          # ★ фоновые потоки этапов конвейера
+│   ├── widgets.py          # ★ виджеты и графические элементы интерфейса
+│   ├── ui_panel.py         #   сборка левой панели
+│   ├── details_panel.py    # ★ панель сведений об устройстве и техобъекте
+│   ├── scene_painter.py    #   отрисовка схемы на сцене
+│   ├── theme.py            #   оформление окна одним листом стилей
+│   ├── app_settings.py     # ★ что помнится между запусками (QSettings): окно, папки, сеанс
+│   └── app_log.py          #   журнал работы приложения
+│
+├── tests/                  # ★ 528 проверок: геометрия, выгрузка, конвейер GUI, схемы, окно
 ├── tools/calibrate_scale.py    # ★ подбор dpi и размера плитки для детекции
 ├── tools/extract_symbols.py    # ★ каталог готовых фигур из сцены редактора
 ├── tools/make_contur_symbols.py # ★ фигуры, которых нет в библиотеке: кнопка, лампа, сирена, колонна
-├── parse_lua.py            #   разбор main.io.lua (nodes + devices) через lupa
-├── parse_lua_objects.py    #   разбор main.objects.lua (тоже через lupa)
-├── parse_lua_shared.py     # ★ обмен с соседними контроллерами из shared.lua
-├── objects_loader.py       #   загрузка parsed_lua_objects.json в объектную модель (singleton objects_data)
-├── device_dossier.py       # ★ досье устройства: состояния, техобъект, соседи по трубам
-├── details_panel.py        # ★ панель сведений об устройстве и техобъекте
-├── extract_geometry.py     #   извлечение линий и текстов из PDF (PyMuPDF)
-├── contour_detector.py     #   поиск замкнутых контуров + их именование
-├── device_matcher.py       #   сопоставление Lua-устройств с текстами внутри контуров
-├── pdf_processor.py        #   PDF → PNG → YOLO → размеченный SVG (+ класс DeviceDetector)
-├── export_scene.py         # ★ общая подготовка выгрузки: координаты, точки, трубы
-├── xml_export.py           #   экспорт визуализации в XML (PlantGeometry 1.3)
-├── json_export.py          # ★ тот же состав в JSON (PlantGeometry 1.3)
-├── hmi_export.py           # ★ формат редактора мнемосхем: плоский массив элементов
-├── hmi_symbols.py          # ★ готовые фигуры библиотеки редактора и выбор по типу
 ├── hmi_symbols.json        #   каталог фигур, собранный из сцены редактора
-├── hmi_validate.py         # ★ приёмка файла по спецификации импорта
-├── exporters.py            # ★ выбор формата выгрузки по расширению файла
-├── postgreSQL_export.py    #   экспорт того же в PostgreSQL
-├── data_models.py          #   dataclass-модели (DeviceMatch, Contour, Operation…), без Qt
-├── segment_data.py         #   dataclass SegmentData / ClosedContour
 ├── requirements.txt        # ★ зависимости
-├── МоеПриложение.spec      #   сборка PyInstaller (entry = xml_viewer.py)
+├── МоеПриложение.spec      #   сборка PyInstaller (entry = main.py)
 ├── output/                 #   результаты работы (в репозиторий не входят)
 └── runs/detect/            #   веса YOLO: train2/weights/best.pt
 ```
 
-> Пути и настройки собраны в `config.py` и считаются от папки с кодом.
+> Пути и настройки собраны в `contur/core/config.py` и считаются от папки
+> модуля: `BASE_DIR` берётся как `parents[2]` от самого файла настроек.
+> Каталог фигур и веса модели лежат в корне модуля, потому что сборка
+> PyInstaller вкладывает их именно туда.
 > Переопределяются переменными окружения: `CONTUR_YOLO_MODEL`, `CONTUR_OUTPUT_DIR`,
 > `CONTUR_INPUT_DIR`, `CONTUR_YOLO_TILE_SIZE`, `CONTUR_YOLO_STEP`, `CONTUR_YOLO_CONF`,
 > `CONTUR_YOLO_DPI`, `CONTUR_DB_HOST` / `_PORT` / `_NAME` / `_USER` / `_PASSWORD`.
@@ -203,9 +233,9 @@ end
 тремя потребителями. Поиск соседних объектов идёт через пространственную сетку
 (`SpatialGrid`), а не перебором пар.
 
-### Точка входа — `xml_viewer.py`
+### Точка входа — `main.py` и `contur/ui/main_window.py`
 
-GUI на PySide6, окно `DeviceVisualizer` (`xml_viewer.py:1170`). Вся тяжёлая работа — в `QThread`:
+GUI на PySide6, окно `DeviceVisualizer` (`contur/ui/main_window.py`). Вся тяжёлая работа — в `QThread`:
 
 | Поток | Файл:строка | Что делает |
 |---|---|---|
@@ -789,7 +819,7 @@ ALPMA O») — разные вещи, а состояние устройства
 
 ```powershell
 cd <папка модуля>
-python xml_viewer.py            # основное GUI-приложение
+python main.py                  # основное GUI-приложение
 python check_pipeline.py        # прогон конвейера без GUI (проверка, что всё цело)
 ```
 
@@ -855,7 +885,7 @@ cd <папка модуля>
 pyinstaller МоеПриложение.spec        # результат: dist\МоеПриложение\МоеПриложение.exe
 ```
 
-Точка входа прежняя — `xml_viewer.py`, имя приложения не менялось. Что учтено в spec:
+Точка входа — `main.py`, имя приложения не менялось. Что учтено в spec:
 
 - модель YOLO вкладывается в сборку, если `runs/detect/train2/weights/best.pt` на месте;
 - `ultralytics` подтягивается вместе с конфигами и подмодулями (статический анализ их не находит).

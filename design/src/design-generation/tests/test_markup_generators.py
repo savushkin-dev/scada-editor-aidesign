@@ -22,7 +22,7 @@ from pathlib import Path
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-import config
+from contur.core import config
 
 # Небольшой лист: детекция около десяти секунд вместо полутора минут
 TEST_PDF = config.INPUT_DIR / "test" / "BN1-Растворение-3.pdf"
@@ -36,8 +36,8 @@ def _app():
 
 def _describe(path: str) -> dict:
     # Показатели считаются тем же разбором, каким пользуется экспорт
-    import svg_geometry as g
-    from xml_export import get_pdf_page_size
+    from contur.pdf import svg_geometry as g
+    from contur.export.xml_export import get_pdf_page_size
 
     root = ET.parse(path).getroot()
     _, scale = g.detect_coordinate_system(root, get_pdf_page_size(str(TEST_PDF), 0))
@@ -67,9 +67,9 @@ def _both_markups():
     # на одинаковых рамках, иначе разница будет от модели, а не от кода
     import fitz
 
-    import markup_cache
-    from pdf_processor import PDFToSVGConverter
-    from workers import YOLOMarkingThread
+    from contur.pdf import markup_cache
+    from contur.pdf.pdf_processor import PDFToSVGConverter
+    from contur.ui.workers import YOLOMarkingThread
 
     _app()
     markup_cache.DISABLED = True
@@ -124,8 +124,8 @@ def test_console_generator_marks_only_devices():
         print(f"  ПРОПУСК test_console_generator_marks_only_devices: нет {TEST_PDF}")
         return
 
-    import svg_geometry as g
-    from xml_export import get_pdf_page_size
+    from contur.pdf import svg_geometry as g
+    from contur.export.xml_export import get_pdf_page_size
 
     _, console_svg = _both_markups()
     try:
@@ -145,14 +145,14 @@ def test_lost_elements_are_counted():
     # гасилась, а счётчик считал их отрисованными
     import inspect
 
-    from pdf_processor import MAX_FAILED_SHARE, PDFToSVGConverter
+    from contur.pdf.pdf_processor import MAX_FAILED_SHARE, PDFToSVGConverter
 
     source = inspect.getsource(PDFToSVGConverter._create_svg_content)
     assert "failed_elements" in source, "консольный генератор не считает потери"
     assert "MAX_FAILED_SHARE" in source, "нет порога, при котором разметка отвергается"
     assert 0 < MAX_FAILED_SHARE <= 10, f"порог потерь странный: {MAX_FAILED_SHARE}"
 
-    import workers
+    from contur.ui import workers
     assert "MAX_FAILED_SHARE" in inspect.getsource(workers.YOLOMarkingThread), \
         "оконный генератор держит собственный порог вместо общего"
 

@@ -21,12 +21,12 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-import config
-import console_utils  # noqa: F401  (кодировка вывода, как в точках входа)
-import hmi_export
-import hmi_symbols
-from hmi_export import HMIExporter, export_current_visualization_hmi
-import export_scene
+from contur.core import config
+from contur.core import console_utils  # noqa: F401  (кодировка вывода, как в точках входа)
+from contur.export import hmi_export
+from contur.export import hmi_symbols
+from contur.export.hmi_export import HMIExporter, export_current_visualization_hmi
+from contur.export import export_scene
 from dataclasses import replace
 
 from test_json_export import (
@@ -467,7 +467,7 @@ def test_tech_object_colour_does_not_jump_between_runs():
     # при каждом запуске Python: у объекта менялся цвет от запуска к запуску
     import subprocess
 
-    code = ("import sys; sys.path.insert(0, r'%s'); import config; "
+    code = ("import sys; sys.path.insert(0, r'%s'); from contur.core import config; "
             "print(config.tech_object_color('TANK1'))" % str(ROOT))
     runs = {subprocess.run([sys.executable, "-c", code], capture_output=True,
                            text=True).stdout.strip() for _ in range(3)}

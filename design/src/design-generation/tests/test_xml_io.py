@@ -18,8 +18,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-import console_utils  # noqa: F401  (кодировка вывода, как в точках входа)
-import xml_io
+from contur.core import console_utils  # noqa: F401  (кодировка вывода, как в точках входа)
+from contur.export import xml_io
 
 CANVAS = 'canvas-width="1000" canvas-height="800"'
 
@@ -183,7 +183,7 @@ def test_unreadable_file_is_not_swallowed():
 def test_module_does_not_depend_on_qt():
     # Смысл выделения в том, что разбор проверяется без окна.
     # Импорт Qt здесь вернул бы всё как было.
-    source = (Path(__file__).resolve().parent.parent / "xml_io.py").read_text(
+    source = (Path(__file__).resolve().parent.parent / "contur" / "export" / "xml_io.py").read_text(
         encoding="utf-8")
     assert "PySide6" not in source, "в разбор XML вернулся Qt"
 
