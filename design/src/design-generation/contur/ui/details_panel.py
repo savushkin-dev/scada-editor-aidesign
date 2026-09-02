@@ -18,7 +18,7 @@
 #
 # Панель — инструмент окна: она ничего не добавляет ни в одну выгрузку
 # и ничего не меняет в данных. Она читает те же поля, что уезжают редактору
-# (`export_scene`, `objects_loader`), и показывает их человеку.
+# (`lua/queries`, `objects_loader`), и показывает их человеку.
 #
 # Показываемое всегда одно. `show_device` и `show_operation` очищают
 # содержимое перед заполнением, поэтому данные двух устройств (или устройства
@@ -42,7 +42,7 @@ from PySide6.QtWidgets import (QHBoxLayout, QHeaderView, QLabel, QPushButton,
 
 from contur.core import config
 from contur.core.data_models import DeviceMatch
-from contur.export.export_scene import state_text
+from contur.lua.queries import state_text
 from contur.matching import device_dossier
 from contur.lua.objects_loader import Operation, TechObject, objects_data
 

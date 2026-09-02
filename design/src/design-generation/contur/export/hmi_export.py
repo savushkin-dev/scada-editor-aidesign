@@ -101,10 +101,10 @@ from typing import Any, Dict, List, Optional, Set, Tuple
 from contur.core import config
 from contur.export import hmi_symbols
 from contur.core.data_models import Contour, DeviceMatch
-from contur.export.export_scene import (
-    ExportScene, build_scene, controller_nodes, device_operation_state,
-    device_states, object_details, operation_program, operation_summary,
-    project_signals, state_text,
+from contur.scene import ExportScene, build_scene
+from contur.lua.queries import (
+    controller_nodes, device_operation_state, device_states, object_details,
+    operation_program, operation_summary, project_signals, state_text,
 )
 from contur.pdf.svg_geometry import (
     REFERENCE_DEVICE_SIZE, DeviceCenter, LineSegment, SheetText,

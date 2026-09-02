@@ -13,16 +13,15 @@
 #     вместо строк через запятую;
 #   - счётчики (count) не дублируются: длина массива и есть счётчик.
 #
-# Сцена (координаты, точки сопряжения, трубы) собирается в export_scene —
+# Сцена (координаты, точки сопряжения, трубы) собирается в contur/scene.py —
 # тем же кодом, что и для XML, чтобы каналы не разъезжались.
 from contur.core import console_utils  # noqa: F401  (настройка кодировки вывода)
 import json
 from typing import Any, Dict, List, Optional, Tuple
 
 from contur.core.data_models import Contour, DeviceMatch
-from contur.export.export_scene import (
-    ExportScene, build_scene, device_operation_state, operation_summary, state_text,
-)
+from contur.scene import ExportScene, build_scene
+from contur.lua.queries import device_operation_state, operation_summary, state_text
 from contur.pdf.svg_geometry import build_connection_graph
 
 # Версия формата общая с XML: состав тот же, меняются вместе

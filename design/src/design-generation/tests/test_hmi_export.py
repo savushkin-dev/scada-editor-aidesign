@@ -26,7 +26,7 @@ from contur.core import console_utils  # noqa: F401  (кодировка выв�
 from contur.export import hmi_export
 from contur.export import hmi_symbols
 from contur.export.hmi_export import HMIExporter, export_current_visualization_hmi
-from contur.export import export_scene
+from contur.lua import queries
 from dataclasses import replace
 
 from test_json_export import (
@@ -138,12 +138,12 @@ def _with_operations(**kwargs):
     Настоящее приходит из main.objects.lua; проверкам нужно знать, что
     состояния устройства доезжают до элемента, а не какие они бывают.
     """
-    was = export_scene.objects_data
-    export_scene.objects_data = _FakeObjectsData()
+    was = queries.objects_data
+    queries.objects_data = _FakeObjectsData()
     try:
         return _elements(**kwargs)
     finally:
-        export_scene.objects_data = was
+        queries.objects_data = was
 
 
 # ---------------------------------------------------------------- форма файла

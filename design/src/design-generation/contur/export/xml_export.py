@@ -5,7 +5,8 @@ import os
 from typing import List, Optional, Tuple, Dict
 
 from contur.core.data_models import DeviceMatch, Contour
-from contur.export.export_scene import build_scene, device_operation_state, operation_summary, state_text
+from contur.scene import build_scene
+from contur.lua.queries import device_operation_state, operation_summary, state_text
 from contur.pdf.svg_geometry import (
     JunctionPoint, LineSegment, Pipeline, build_connection_graph,
 )
@@ -15,7 +16,7 @@ class SVGToXMLExporter:
     # Экспортёр SVG в XML с единой системой координат (PDF пункты).
     # Разбор геометрии SVG вынесен в модуль svg_geometry — он общий
     # с экспортом в PostgreSQL, а подготовка сцены (координаты, точки
-    # сопряжения, трубы) — в export_scene, общий с выгрузкой в JSON.
+    # сопряжения, трубы) — в contur/scene.py, общей с выгрузкой в JSON.
 
     def __init__(self, use_percent_coords: bool = True, current_operation_id: str | None = None,
                  pdf_size: Optional[Tuple[float, float]] = None,
@@ -271,7 +272,7 @@ class SVGToXMLExporter:
             print(f"   - Устройств (matches): {len(matches)}")
 
             # Разбор SVG, координаты, точки сопряжения и трубы — общие
-            # для всех каналов выгрузки, они собраны в export_scene
+            # для всех каналов выгрузки, они собраны в сцене
             scene = build_scene(svg_path, matches, contours, self.pdf_size,
                                 self.use_percent_coords, self.snap_to_geometry)
             if scene is None:

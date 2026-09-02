@@ -1,26 +1,26 @@
-# export_scene.py
-# Общая подготовка данных к выгрузке: разбор размеченного SVG, приведение
-# координат к пунктам PDF, точки сопряжения, трубопроводы, уточнение положения
-# устройств по геометрии.
+# scene.py
+# Сцена листа: разбор размеченного SVG, приведение координат к пунктам PDF,
+# точки сопряжения, трубопроводы, уточнение положения устройств по геометрии.
 #
-# Зачем отдельным модулем. Этот блок дословно повторялся в xml_export
-# и postgres_export, а с появлением выгрузки в JSON копий стало бы три.
-# Расхождение между копиями означало бы, что каналы выгрузки отдают разные
-# данные об одном и том же листе, и заметить это можно было бы только
-# сравнением файлов вручную.
+# Это стержень конвейера, а не часть выгрузки. Чертёж и описание контроллера
+# сходятся здесь в один разобранный лист, и дальше его одинаково читают все
+# четыре выгрузки и главное окно. Лежала сцена внутри `export`, и окну
+# приходилось импортировать из выгрузки то, что никуда не выгружается.
 #
-# Модуль не знает про Qt и ничего не сериализует: как записать сцену —
-# дело xml_export и json_export.
-import json
+# Собирается один раз на лист. Раньше этот блок дословно повторялся
+# в xml_export и postgres_export, а с появлением выгрузки в JSON копий стало
+# бы три: расхождение между ними означало бы, что каналы отдают разные данные
+# об одном листе, и заметить это можно было бы только сравнением файлов.
+#
+# Модуль не знает про Qt и ничего не сериализует: как записать сцену — дело
+# выгрузок. Про операции и состояния он тоже не знает, это `lua/queries.py`.
 import re
 import xml.etree.ElementTree as ET
 from dataclasses import dataclass, replace
-from typing import Any, Dict, List, Optional, Tuple
+from typing import List, Optional, Tuple
 
-from contur.core import config
 from contur.core.data_models import Contour, DeviceMatch
 from contur.matching import device_dossier
-from contur.lua.objects_loader import objects_data
 from contur.pdf.svg_geometry import (
     DeviceCenter, JunctionPoint, LineSegment, Pipeline, SheetText,
     build_pipelines, detect_coordinate_system, device_centers,
@@ -177,96 +177,6 @@ def build_scene(svg_path: str, matches: List[DeviceMatch], contours: List[Contou
         drawing_segments=drawing_segments,
         junction_points=junction_points, pipelines=pipelines,
         matches=matches, contours=contours, centers=centers)
-
-
-# ---------------------------------------------------------------- состояния устройств
-
-def device_operation_state(current_operation_id: Optional[str],
-                           device_name: str) -> Tuple[str, Dict[str, Any]]:
-    # Состояние устройства в текущей операции
-    if not current_operation_id:
-        return "not_used", {}
-
-    details = objects_data.get_device_details_in_operation(current_operation_id, device_name)
-    if details:
-        return details.get("status", "not_used"), details
-    return "not_used", {}
-
-
-def device_states(device_name: str) -> List[Dict[str, Any]]:
-    """Все места, где устройство открывается и закрывается.
-
-    device_operation_state отвечает про одну выбранную операцию; здесь —
-    весь список по всем операциям проекта. Разделены намеренно: XML пишет
-    состояние в текущей операции, а выгрузка для редактора — все, чтобы
-    мнемосхема могла показать положение клапана на любом шаге.
-    """
-    if not device_name:
-        return []
-    return objects_data.get_device_states(device_name)
-
-
-def operation_program(operation_id: str) -> Optional[Dict[str, Any]]:
-    """Состояния и шаги операции — то, что стоит за состояниями устройств."""
-    if not operation_id:
-        return None
-    return objects_data.get_operation_program(operation_id)
-
-
-def object_details(obj_id: str) -> Optional[Dict[str, Any]]:
-    """Уставки, свойства и состав техобъекта — то, чем он настроен."""
-    if not obj_id:
-        return None
-    return objects_data.get_object_details(obj_id)
-
-
-def project_signals() -> List[Dict[str, Any]]:
-    """Сигналы проекта: имя, тип и чей он."""
-    return list(objects_data.signals)
-
-
-def controller_nodes() -> List[Dict[str, Any]]:
-    """Узлы контроллера из main.io.lua: имя, адрес, тип, модули.
-
-    Читается из разобранного main.io.lua, а не из состояния приложения:
-    узлы относятся к проекту целиком, и сцена листа про них ничего не знает.
-    Файл перечитывается каждый раз — он маленький, а кэш между проектами
-    показал бы узлы предыдущего.
-    """
-    try:
-        with open(config.PARSED_LUA_JSON, "r", encoding="utf-8") as f:
-            return list(json.load(f).get("nodes", []))
-    except (OSError, ValueError):
-        return []
-
-
-def state_text(status: str) -> str:
-    # Статус для показа человеку
-    return {
-        "opened": "открыто",
-        "closed": "закрыто",
-        "not_used": "не используется",
-    }.get(status, "не известно")
-
-
-def operation_summary(current_operation_id: Optional[str]) -> Optional[Dict[str, Any]]:
-    """Текущая операция и сколько устройств в ней открыто и закрыто."""
-    if not current_operation_id:
-        return None
-
-    current_op = objects_data.get_operation_by_id(current_operation_id)
-    if not current_op:
-        return None
-
-    devices_status = objects_data.get_devices_for_operation(current_operation_id)
-    return {
-        "id": current_operation_id,
-        "name": current_op.name,
-        "tech_object": current_op.obj_name,
-        "devices_opened": sum(1 for s in devices_status.values() if s == "opened"),
-        "devices_closed": sum(1 for s in devices_status.values() if s == "closed"),
-        "devices_total": len(devices_status),
-    }
 
 
 # ---------------------------------------------------------------- координаты SVG

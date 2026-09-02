@@ -36,7 +36,7 @@ from contur.pdf import markup_cache
 from contur.core.data_models import Contour, DeviceMatch
 from contur.ui.details_panel import DetailsPanel
 from contur.matching import device_dossier
-from contur.export.export_scene import build_scene
+from contur.scene import build_scene
 from contur.matching.device_matcher import build_match_report, format_match_report, generate_output_xml
 from contur.pdf.extract_geometry import page_count
 from contur.lua.objects_loader import Operation as TechOperation, objects_data
@@ -1297,7 +1297,7 @@ class DeviceVisualizer(QMainWindow):
     def _attach_neighbours(self, svg_path: str) -> None:
         """Соседей по трубам — в досье устройства.
 
-        Трубопроводы строит `export_scene.build_scene`, и звать его здесь
+        Трубопроводы строит `scene.build_scene`, и звать его здесь
         дешевле, чем повторять этот же разбор своими руками: положение
         устройств уже уточнено, поэтому просим не трогать его второй раз.
         """
