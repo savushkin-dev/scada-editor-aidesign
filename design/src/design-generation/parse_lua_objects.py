@@ -1,253 +1,65 @@
+import console_utils  # noqa: F401  (настройка кодировки вывода)
+import config
 # parse_lua_objects.py
-import re
 import json
 import os
-from typing import Any, Dict, List, Union
+from typing import Dict
 
-INPUT_LUA_FILE = "input/test1/main.objects.lua"
-OUTPUT_JSON = "output/parsed_lua_objects.json"
+INPUT_LUA_FILE = str(config.INPUT_DIR / "test1" / "main.objects.lua")
+OUTPUT_JSON = str(config.PARSED_LUA_OBJECTS_JSON)
 
 
-class LuaTableParser:
-    def __init__(self):
-        self.max_recursion = 100  # Защита от слишком глубокой рекурсии
+# Поля, которые в Lua заданы как отображение «номер -> запись»,
+# а не как массив. Для них целочисленные ключи сохраняются,
+# остальные таблицы с ключами 1..N становятся списками.
+MAP_FIELDS = frozenset({
+    "modes", "states", "steps", "par_float", "rt_par_float",
+    "properties", "system_parameters", "equipment",
+})
 
-    def parse_file(self, file_path: str) -> Dict[str, Any]:
-        with open(file_path, 'r', encoding='utf-8') as f:
-            content = f.read()
 
-        # Удаляем комментарии
-        content = self._remove_comments(content)
-
-        # Находим основную функцию init_tech_objects_modes
-        main_table = self._extract_main_table(content)
-        if not main_table:
-            raise ValueError("Не удалось найти таблицу init_tech_objects_modes")
-
-        # Парсим основную таблицу
-        result = self._parse_table(main_table, depth=0)
-
-        return result
-
-    def _remove_comments(self, content: str) -> str:
-        # Удаляем однострочные комментарии --
-        lines = []
-        for line in content.split('\n'):
-            # Ищем -- не внутри строки
-            in_string = False
-            string_char = None
-            comment_pos = -1
-
-            for i, char in enumerate(line):
-                if char in ['"', "'"] and (i == 0 or line[i - 1] != '\\'):
-                    if not in_string:
-                        in_string = True
-                        string_char = char
-                    elif string_char == char:
-                        in_string = False
-                        string_char = None
-                elif char == '-' and i < len(line) - 1 and line[i + 1] == '-' and not in_string:
-                    comment_pos = i
-                    break
-
-            if comment_pos >= 0:
-                line = line[:comment_pos]
-
-            lines.append(line)
-
-        content = '\n'.join(lines)
-
-        # Удаляем многострочные комментарии --[[ ... ]]
-        content = re.sub(r'--\[\[.*?\]\]', '', content, flags=re.DOTALL)
-
-        return content
-
-    def _extract_main_table(self, content: str) -> str:
-        # Ищем return {...} в функции
-        pattern = r'init_tech_objects_modes\s*=\s*function\s*\(\s*\)\s*return\s*(\{.*?\})\s*end'
-        match = re.search(pattern, content, re.DOTALL)
-        if match:
-            return match.group(1).strip()
-
-        return None
-
-    def _find_matching_brace(self, text: str, start_pos: int) -> int:
-        count = 1
-        in_string = False
-        string_char = None
-        i = start_pos + 1
-
-        while i < len(text) and count > 0:
-            char = text[i]
-
-            # Пропускаем строки
-            if char in ['"', "'"] and (i == 0 or text[i - 1] != '\\'):
-                if not in_string:
-                    in_string = True
-                    string_char = char
-                elif string_char == char:
-                    in_string = False
-                    string_char = None
-
-            if not in_string:
-                if char == '{':
-                    count += 1
-                elif char == '}':
-                    count -= 1
-
-            i += 1
-
-        if count == 0:
-            return i - 1
-        return -1
-
-    def _parse_table(self, text: str, depth: int) -> Union[Dict, List, str, int, float, bool, None]:
-        if depth > self.max_recursion:
-            return None
-
-        text = text.strip()
-
-        # Пустая таблица
-        if text == '{}':
-            return {}
-
-        # Убираем внешние фигурные скобки
-        if text.startswith('{') and text.endswith('}'):
-            # Проверяем, что скобки правильно сбалансированы
-            if self._find_matching_brace(text, 0) == len(text) - 1:
-                inner = text[1:-1].strip()
-                if not inner:
-                    return {}
-            else:
-                # Неправильная структура, возвращаем как есть
-                return text
-        else:
-            return self._parse_value(text)
-
-        # Разбиваем на элементы
-        items = self._split_table_items(inner, depth)
-
-        # Определяем, является ли таблица словарем или списком
-        is_dict = False
-        result_dict = {}
-        result_list = []
-
-        for item in items:
-            if not item:
-                continue
-
-            if '=' in item:
-                # Это пара ключ=значение
-                key_part, value_part = item.split('=', 1)
-                key = self._parse_key(key_part.strip())
-                value = self._parse_value(value_part.strip(), depth + 1)
-
-                result_dict[key] = value
-                is_dict = True
-            else:
-                # Это элемент списка
-                value = self._parse_value(item.strip(), depth + 1)
-                result_list.append(value)
-
-        if is_dict:
-            return result_dict
-        else:
-            return result_list
-
-    def _split_table_items(self, text: str, depth: int) -> List[str]:
-        items = []
-        current = []
-        bracket_level = 0
-        in_string = False
-        string_char = None
-        i = 0
-        n = len(text)
-
-        while i < n:
-            char = text[i]
-
-            # Обработка строк
-            if char in ['"', "'"] and (i == 0 or text[i - 1] != '\\'):
-                if not in_string:
-                    in_string = True
-                    string_char = char
-                elif string_char == char:
-                    in_string = False
-                    string_char = None
-
-            if not in_string:
-                if char == '{':
-                    bracket_level += 1
-                elif char == '}':
-                    bracket_level -= 1
-                elif char == ',' and bracket_level == 0:
-                    # Конец элемента
-                    items.append(''.join(current).strip())
-                    current = []
-                    i += 1
-                    continue
-
-            current.append(char)
-            i += 1
-
-        # Добавляем последний элемент
-        if current:
-            items.append(''.join(current).strip())
-
-        return [item for item in items if item]
-
-    def _parse_key(self, key: str) -> Union[int, str]:
-        key = key.strip()
-
-        # Ключ в квадратных скобках [1]
-        match = re.match(r'\[(\d+)\]', key)
-        if match:
-            return int(match.group(1))
-
-        # Ключ в квадратных скобках со строкой ["name"]
-        match = re.match(r'\["([^"]+)"\]', key)
-        if match:
-            return match.group(1)
-
-        match = re.match(r'\[\'([^\']+)\'\]', key)
-        if match:
-            return match.group(1)
-
-        # Обычный идентификатор
-        return key
-
-    def _parse_value(self, value: str, depth: int = 0) -> Any:
-        value = value.strip()
-
-        if not value:
-            return None
-
-        # Вложенная таблица
-        if value.startswith('{'):
-            return self._parse_table(value, depth + 1)
-
-        # Строка в кавычках
-        if (value.startswith('"') and value.endswith('"')) or \
-                (value.startswith("'") and value.endswith("'")):
-            return value[1:-1]
-
-        # Число
-        try:
-            if '.' in value:
-                return float(value)
-            else:
-                return int(value)
-        except ValueError:
-            pass
-
-        # Булево значение
-        if value.lower() == 'true':
-            return True
-        if value.lower() == 'false':
-            return False
-
-        # Ничего из вышеперечисленного - возвращаем как строку
+def _lua_to_python(value, field_name: str | None = None, top_level: bool = False):
+    # Переводит структуру Lua в Python.
+    #
+    # Раньше файл разбирался самописным парсером на регулярных выражениях.
+    # Он, в частности, не понимал ключи вида '[ 1 ]' (с пробелами) и ломал
+    # devices_data: ключом становился обрывок текста, а значением —
+    # неразобранная строка, из-за чего группы DI/DO и устройств терялись.
+    # Здесь файл выполняется тем же lupa, что и main.io.lua.
+    if value is None or isinstance(value, (str, int, float, bool)):
         return value
+
+    if not hasattr(value, "keys"):
+        return value
+
+    keys = list(value.keys())
+    if not keys:
+        return {} if (top_level or field_name in MAP_FIELDS) else []
+
+    is_array = all(isinstance(k, int) for k in keys) and         sorted(keys) == list(range(1, max(keys) + 1))
+
+    # Отображение: верхний уровень (объекты) и поля вроде modes/states/steps
+    if top_level or field_name in MAP_FIELDS or not is_array:
+        return {str(k): _lua_to_python(value[k], str(k)) for k in keys}
+
+    return [_lua_to_python(value[i], field_name) for i in range(1, max(keys) + 1)]
+
+
+def parse_objects_file(file_path: str) -> Dict:
+    # Выполняет main.objects.lua и возвращает таблицу технологических объектов
+    from lupa import LuaRuntime
+
+    from parse_lua import read_file_with_encoding
+
+    lua = LuaRuntime(unpack_returned_tuples=True)
+    lua.execute(read_file_with_encoding(file_path))
+
+    init_modes = lua.globals().init_tech_objects_modes
+    if init_modes is None:
+        raise ValueError(
+            f"В файле {os.path.basename(file_path)} нет функции init_tech_objects_modes")
+
+    return _lua_to_python(init_modes(), top_level=True)
 
 
 def extract_all_data(parsed_data: Dict) -> Dict:
@@ -256,7 +68,7 @@ def extract_all_data(parsed_data: Dict) -> Dict:
         "devices": [],
         "operations": [],
         "states": [],
-        "steps": [],  # НОВОЕ: добавляем список шагов
+        "steps": [],
         "signals": [],
         "parameters": []
     }
@@ -267,7 +79,7 @@ def extract_all_data(parsed_data: Dict) -> Dict:
     device_names = set()  # для удаления дубликатов устройств
     signal_names = set()  # для удаления дубликатов сигналов
 
-    def add_device(name: str, source: str, parent: str = None, obj_id: str = None):
+    def add_device(name: str, source: str, parent: str | None = None, obj_id: str | None = None):
         if name and isinstance(name, str) and name.strip() and name != "Нет":
             if name not in device_names:
                 device_names.add(name)
@@ -278,7 +90,7 @@ def extract_all_data(parsed_data: Dict) -> Dict:
                     "obj_id": obj_id
                 })
 
-    def add_signal(name: str, signal_type: str, parent: str = None):
+    def add_signal(name: str, signal_type: str, parent: str | None = None):
         if name and isinstance(name, str) and name.strip() and name != "Нет":
             signal_key = f"{name}_{signal_type}"
             if signal_key not in signal_names:
@@ -307,28 +119,39 @@ def extract_all_data(parsed_data: Dict) -> Dict:
             "cooper_param_number": obj_data.get("cooper_param_number")
         }
 
-        # Добавляем параметры par_float
-        par_float = obj_data.get("par_float")
-        if isinstance(par_float, dict):
-            params = []
-            for param_id, param_data in par_float.items():
-                if isinstance(param_data, dict):
-                    param_info = {
-                        "id": str(param_id),
-                        "name": param_data.get("name", ""),
-                        "value": param_data.get("value", 0),
-                        "meter": param_data.get("meter", ""),
-                        "nameLua": param_data.get("nameLua", ""),
-                        "oper": param_data.get("oper", [])
-                    }
-                    params.append(param_info)
+        # Уставки объекта. par_float — заданные значения, rt_par_float —
+        # рабочие параметры: имя, единица измерения и имя в Lua без значения.
+        # В проекте MCA1 объекты описаны только вторыми, и до сих пор они
+        # терялись целиком — 140 записей на объект. Номера у двух списков
+        # свои, поэтому у рабочих к номеру приписывается «rt»
+        params = []
+        for field, prefix in (("par_float", ""), ("rt_par_float", "rt")):
+            block = obj_data.get(field)
+            if not isinstance(block, dict):
+                continue
 
-                    # Добавляем параметр в общий список
-                    result["parameters"].append({
-                        "obj_id": str(obj_id),
-                        "obj_name": tech_obj["name"],
-                        **param_info
-                    })
+            for param_id, param_data in block.items():
+                if not isinstance(param_data, dict):
+                    continue
+
+                param_info = {
+                    "id": f"{prefix}{param_id}",
+                    "name": param_data.get("name", ""),
+                    "value": param_data.get("value", 0),
+                    "meter": param_data.get("meter", ""),
+                    "nameLua": param_data.get("nameLua", ""),
+                    "oper": param_data.get("oper", [])
+                }
+                params.append(param_info)
+
+                # Добавляем параметр в общий список
+                result["parameters"].append({
+                    "obj_id": str(obj_id),
+                    "obj_name": tech_obj["name"],
+                    **param_info
+                })
+
+        if params:
             tech_obj["parameters"] = params
 
         # Добавляем system_parameters
@@ -444,7 +267,7 @@ def extract_all_data(parsed_data: Dict) -> Dict:
                                                 add_signal(signal, "DI_DO",
                                                            f"{tech_obj['name']}.{operation['name']}")
 
-                        # НОВОЕ: Извлекаем шаги (steps) с полной информацией
+                        # Извлекаем шаги (steps) с полной информацией
                         steps = state_data.get("steps")
                         if isinstance(steps, dict):
                             state_info["state_data"]["steps"] = steps
@@ -517,37 +340,20 @@ def extract_all_data(parsed_data: Dict) -> Dict:
     return result
 
 
-def save_sample_data(parsed_data: Dict, output_file: str):
-    sample = {
-        "tech_objects_count": len(parsed_data.get("tech_objects", [])),
-        "devices_count": len(parsed_data.get("devices", [])),
-        "operations_count": len(parsed_data.get("operations", [])),
-        "states_count": len(parsed_data.get("states", [])),
-        "steps_count": len(parsed_data.get("steps", [])),  # НОВОЕ
-        "signals_count": len(parsed_data.get("signals", [])),
-        "parameters_count": len(parsed_data.get("parameters", [])),
-        "sample_object": parsed_data.get("tech_objects", [])[0] if parsed_data.get("tech_objects") else None,
-        "sample_state": parsed_data.get("states", [])[0] if parsed_data.get("states") else None,
-        "sample_step": parsed_data.get("steps", [])[0] if parsed_data.get("steps") else None  # НОВОЕ
-    }
-
-    sample_file = output_file.replace(".json", "_sample.json")
-    with open(sample_file, "w", encoding="utf-8") as f:
-        json.dump(sample, f, indent=2, ensure_ascii=False, default=str)
-
-    return sample_file
-
-
 def main():
-    os.makedirs("output", exist_ok=True)
+    import sys
+
+    config.ensure_output_dir()
+
+    # Путь можно передать аргументом; по умолчанию берётся файл из config
+    input_file = sys.argv[1] if len(sys.argv) > 1 else INPUT_LUA_FILE
 
     print("🔍 Парсинг Lua файла...")
-    print(f"  Файл: {INPUT_LUA_FILE}")
+    print(f"  Файл: {input_file}")
 
     # Парсим Lua
-    parser = LuaTableParser()
     try:
-        parsed_data = parser.parse_file(INPUT_LUA_FILE)
+        parsed_data = parse_objects_file(input_file)
         print("  ✅ Базовая структура распарсена")
     except Exception as e:
         print(f"  ❌ Ошибка парсинга: {e}")
@@ -562,10 +368,7 @@ def main():
     with open(OUTPUT_JSON, "w", encoding="utf-8") as f:
         json.dump(extracted_data, f, indent=2, ensure_ascii=False, default=str)
 
-    # Сохраняем образец для отладки
-    sample_file = save_sample_data(extracted_data, OUTPUT_JSON)
-
-    print(f"\n✅ Парсинг завершен")
+    print("\n✅ Парсинг завершен")
     print(f"  Технологических объектов: {len(extracted_data['tech_objects'])}")
     print(f"  Устройств: {len(extracted_data['devices'])}")
     print(f"  Операций (режимов работы): {len(extracted_data['operations'])}")
@@ -574,7 +377,6 @@ def main():
     print(f"  Сигналов: {len(extracted_data['signals'])}")
     print(f"  Параметров: {len(extracted_data['parameters'])}")
     print(f"💾 Результат сохранен в {OUTPUT_JSON}")
-    print(f"📊 Образец данных сохранен в {sample_file}")
 
     # Показываем примеры найденных операций
     if extracted_data["operations"]:
