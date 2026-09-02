@@ -10,7 +10,7 @@ from contur.core import errors
 from contur.ui import scene_painter
 from contur.ui import theme
 from contur.ui import ui_panel
-from contur.export import xml_io
+from contur.export import xml_reader
 
 import json
 import os
@@ -45,7 +45,7 @@ from contur.pdf.svg_geometry import (build_pipelines, detect_coordinate_system, 
                           format_markup_report, get_svg_dimensions, markup_quality_report,
                           named_device_count,
                           snap_devices_to_geometry, tolerance_scale)
-from contur.export import exporters
+from contur import exporters
 from contur.export.xml_export import get_pdf_page_size
 
 from contur.ui.workers import (DeviceMatchingThread, GeometryExtractionThread, LuaObjectsParsingThread,
@@ -1615,7 +1615,7 @@ class DeviceVisualizer(QMainWindow):
             return
 
         try:
-            document = xml_io.load_document(file_path)
+            document = xml_reader.load_document(file_path)
         except Exception as e:
             QMessageBox.critical(self, "Ошибка", f"Не удалось загрузить файл:\n{e!s}")
             return

@@ -21,8 +21,8 @@ import time
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
-from contur.core import golden
-from contur.export import xml_io
+import golden
+from contur.export import xml_reader
 
 DEFAULT_PDF = config.INPUT_DIR / "test1" / "BN1-МОЛОКОХРАНИЛИЩЕ-2025Full-4.pdf"
 DEFAULT_IO_LUA = config.INPUT_DIR / "test1" / "main.io.lua"
@@ -180,7 +180,7 @@ def main() -> int:
     from contur.lua.parse_lua import parse_lua_file
     from contur.lua.parse_lua_objects import parse_objects_file, extract_all_data
     from contur.pdf.extract_geometry import extract_line_segments, extract_text_elements, page_count
-    from contur.core.segments import SegmentData
+    from contur.core.data_models import SegmentData
     from contur.pdf.contour_detector import find_contours, find_all_contour_names_by_proximity, gen_xml
     from contur.matching.device_matcher import (load_lua_data, extract_lua_names, load_pdf_geometry,
                                 find_pdf_device_texts, match_devices,
@@ -361,9 +361,9 @@ def main() -> int:
                 # Обратная загрузка: экспорт должен читаться приложением.
                 # Раньше здесь проверялось только наличие canvas-width — то есть
                 # имя round-trip носила проверка, которая обратно ничего
-                # не читала. Теперь разбор вынесен в xml_io и доступен без окна.
+                # не читала. Теперь разбор вынесен в xml_reader и доступен без окна.
                 devices = len(list(root.iter("Device")))
-                document = xml_io.load_document(output_xml)
+                document = xml_reader.load_document(output_xml)
                 metrics["устройств_при_обратном_чтении"] = len(document.matches)
                 metrics["контуров_при_обратном_чтении"] = len(document.contours)
 
@@ -415,7 +415,7 @@ def main() -> int:
                 # проект. Здесь важно не содержание, а что файл вообще
                 # пригоден: плоский массив, числовые координаты, свой ключ
                 # у каждого элемента
-                from contur.export.hmi_export import export_current_visualization_hmi
+                from contur.hmi.exporter import export_current_visualization_hmi
 
                 output_hmi = config.OUTPUT_DIR / "_check_export_hmi.json"
                 if step("экспорт для редактора", lambda: export_current_visualization_hmi(
@@ -501,7 +501,7 @@ def main() -> int:
 
                     # Самопроверка по спецификации импорта (§10): файл
                     # читается с диска ровно так, как его прочитает редактор
-                    from contur.export import hmi_validate
+                    from contur.hmi import validate as hmi_validate
 
                     remarks, drawing_stats = hmi_validate.validate(elements)
                     metrics["чертёж_короче_клетки"] = drawing_stats["короткие_отрезки"]

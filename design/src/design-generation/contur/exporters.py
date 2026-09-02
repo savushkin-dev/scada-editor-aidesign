@@ -15,7 +15,7 @@ from pathlib import Path
 from typing import Callable, Dict, List, Optional, Tuple
 
 from contur.core.data_models import Contour, DeviceMatch
-from contur.export.hmi_export import export_current_visualization_hmi
+from contur.hmi.exporter import export_current_visualization_hmi
 from contur.export.json_export import export_current_visualization_json
 from contur.export.xml_export import export_current_visualization
 

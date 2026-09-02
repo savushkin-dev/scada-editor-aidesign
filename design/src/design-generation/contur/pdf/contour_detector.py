@@ -9,7 +9,7 @@ import json
 import os
 
 from contur.pdf.extract_geometry import extract_line_segments, extract_text_elements
-from contur.core.segments import SegmentData, ClosedContour
+from contur.core.data_models import SegmentData, ClosedContour
 
 
 TOLERANCE = config.CONTOUR_POINT_TOLERANCE

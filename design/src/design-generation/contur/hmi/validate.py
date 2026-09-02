@@ -259,7 +259,7 @@ if __name__ == "__main__":
     import sys
 
     if len(sys.argv) < 2:
-        print("Укажите файл: python hmi_validate.py выгрузка.json")
+        print("Укажите файл: python -m contur.hmi.validate выгрузка.json")
         raise SystemExit(2)
 
     with open(sys.argv[1], encoding="utf-8") as f:

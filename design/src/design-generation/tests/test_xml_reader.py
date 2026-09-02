@@ -1,4 +1,4 @@
-# tests/test_xml_io.py
+# tests/test_xml_reader.py
 # Чтение своего XML.
 #
 # Разбор жил внутри окна вперемешку с диалогом выбора файла и окнами
@@ -10,7 +10,7 @@
 # в атрибутах canvas-*, у старых файлов — только viewBox внутри SVGContent.
 #
 # Запуск из папки CONTUR:
-#     python tests/test_xml_io.py
+#     python tests/test_xml_reader.py
 import sys
 import tempfile
 import xml.etree.ElementTree as ET
@@ -19,7 +19,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from contur.core import console_utils  # noqa: F401  (кодировка вывода, как в точках входа)
-from contur.export import xml_io
+from contur.export import xml_reader
 
 CANVAS = 'canvas-width="1000" canvas-height="800"'
 
@@ -50,13 +50,13 @@ def _write(text: str) -> str:
     return handle.name
 
 
-def _document(**overrides) -> xml_io.LoadedDocument:
+def _document(**overrides) -> xml_reader.LoadedDocument:
     fields = {"canvas": CANVAS, "bounds": "10%,20%,30%,40%",
               "center": "20%,30%", "x": "10%"}
     fields.update(overrides)
     path = _write(DOCUMENT.format(**fields))
     try:
-        return xml_io.load_document(path)
+        return xml_reader.load_document(path)
     finally:
         Path(path).unlink(missing_ok=True)
 
@@ -66,20 +66,20 @@ def _document(**overrides) -> xml_io.LoadedDocument:
 def test_percent_becomes_absolute():
     # Ради этого перевода всё и затевалось: 62.064% при холсте 1000
     # это 620.64 пункта, а не 62.064 и не 6206.4
-    assert xml_io.parse_coord("62.064%", 1000.0) == 620.64
-    assert xml_io.parse_coord("50%", 800.0) == 400.0
+    assert xml_reader.parse_coord("62.064%", 1000.0) == 620.64
+    assert xml_reader.parse_coord("50%", 800.0) == 400.0
 
 
 def test_absolute_stays_absolute():
-    assert xml_io.parse_coord("123.4", 1000.0) == 123.4
-    assert xml_io.parse_coord(" 123.4 ", None) == 123.4
+    assert xml_reader.parse_coord("123.4", 1000.0) == 123.4
+    assert xml_reader.parse_coord(" 123.4 ", None) == 123.4
 
 
 def test_percent_without_canvas_is_refused():
     # Молча вернуть 62.064 вместо 620.64 хуже, чем отказаться:
     # устройство уехало бы в угол чертежа, и никто бы не понял почему
     try:
-        xml_io.parse_coord("62.064%", None)
+        xml_reader.parse_coord("62.064%", None)
         raise AssertionError("проценты без размеров холста разобрались")
     except ValueError as e:
         assert "процент" in str(e), f"невнятная жалоба: {e}"
@@ -89,7 +89,7 @@ def test_percent_without_canvas_is_refused():
 
 def test_canvas_from_attributes():
     root = ET.fromstring(f'<PlantGeometry {CANVAS}/>')
-    assert xml_io.canvas_size(root) == (1000.0, 800.0)
+    assert xml_reader.canvas_size(root) == (1000.0, 800.0)
 
 
 def test_canvas_from_viewbox_of_old_files():
@@ -99,7 +99,7 @@ def test_canvas_from_viewbox_of_old_files():
         '<PlantGeometry><SVGContent>'
         '&lt;svg viewBox="0 0 3368 2384"&gt;&lt;/svg&gt;'
         '</SVGContent></PlantGeometry>')
-    assert xml_io.canvas_size(root) == (3368.0, 2384.0)
+    assert xml_reader.canvas_size(root) == (3368.0, 2384.0)
 
 
 def test_canvas_from_viewbox_accounts_for_scale():
@@ -108,12 +108,12 @@ def test_canvas_from_viewbox_accounts_for_scale():
         '<PlantGeometry original-svg-coord-system="scaled_2">'
         '<SVGContent>&lt;svg viewBox="0 0 2000 1600"&gt;&lt;/svg&gt;</SVGContent>'
         '</PlantGeometry>')
-    assert xml_io.canvas_size(root) == (1000.0, 800.0)
+    assert xml_reader.canvas_size(root) == (1000.0, 800.0)
 
 
 def test_canvas_absent_is_admitted():
     root = ET.fromstring('<PlantGeometry/>')
-    assert xml_io.canvas_size(root) == (None, None)
+    assert xml_reader.canvas_size(root) == (None, None)
 
 
 # ------------------------------------------------------------ чтение файла
@@ -172,7 +172,7 @@ def test_unreadable_file_is_not_swallowed():
     # Битый файл — не то же самое, что пустой: окно должно сказать об этом
     path = _write("<PlantGeometry><TechnologicalObjects>")
     try:
-        xml_io.load_document(path)
+        xml_reader.load_document(path)
         raise AssertionError("обрезанный файл прочитался")
     except ET.ParseError:
         pass
@@ -183,7 +183,7 @@ def test_unreadable_file_is_not_swallowed():
 def test_module_does_not_depend_on_qt():
     # Смысл выделения в том, что разбор проверяется без окна.
     # Импорт Qt здесь вернул бы всё как было.
-    source = (Path(__file__).resolve().parent.parent / "contur" / "export" / "xml_io.py").read_text(
+    source = (Path(__file__).resolve().parent.parent / "contur" / "export" / "xml_reader.py").read_text(
         encoding="utf-8")
     assert "PySide6" not in source, "в разбор XML вернулся Qt"
 

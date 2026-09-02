@@ -932,7 +932,7 @@ def main():
         print("⚠️ Файл output.xml не найден. Извлекаем геометрию из PDF...")
         from contur.pdf.extract_geometry import extract_line_segments, extract_text_elements
         from contur.pdf.contour_detector import find_contours, find_all_contour_names_by_proximity, gen_xml
-        from contur.core.segments import SegmentData
+        from contur.core.data_models import SegmentData
 
         segments = extract_line_segments(pdf_path)
         texts = extract_text_elements(pdf_path)

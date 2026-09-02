@@ -81,13 +81,13 @@ def export_counts(path: Path) -> dict:
 
 def process_page(page: int, args, shared) -> dict:
     from contur.pdf.extract_geometry import extract_line_segments, extract_text_elements
-    from contur.core.segments import SegmentData
+    from contur.core.data_models import SegmentData
     from contur.pdf.contour_detector import find_contours, find_all_contour_names_by_proximity, gen_xml
     from contur.matching.device_matcher import (load_pdf_geometry, find_pdf_device_texts, match_devices,
                                 build_match_report, sheet_object_from_texts)
     from contur.core.data_models import Contour
     from contur.pdf.pdf_processor import PDFToSVGConverter
-    from contur.export.exporters import export_visualization
+    from contur.exporters import export_visualization
     from contur.export.xml_export import get_pdf_page_size
 
     result = {"page": page + 1}

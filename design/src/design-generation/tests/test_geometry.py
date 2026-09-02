@@ -16,9 +16,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from contur.core import config
 from contur.pdf.contour_detector import (find_all_contour_names_by_proximity, find_contours,
                               point_over_contour)
-from contur.core.data_models import DeviceBox
+from contur.core.data_models import DeviceBox, SegmentData
 from contur.pdf.pdf_processor import DeviceDetector, DeviceLabeler
-from contur.core.segments import SegmentData
 from contur.pdf.svg_geometry import (_flatten_cubic, _path_points, detect_coordinate_system,
                           get_svg_dimensions,
                           parse_absolute_length, segment_box_overlap, tolerance_scale)

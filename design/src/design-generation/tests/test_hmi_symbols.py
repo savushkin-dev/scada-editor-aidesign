@@ -19,7 +19,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "tools"))
 
 from contur.core import console_utils  # noqa: F401  (кодировка вывода, как в точках входа)
-from contur.export import hmi_symbols
+from contur.hmi import symbols as hmi_symbols
 import extract_symbols
 
 GRID = hmi_symbols.GRID

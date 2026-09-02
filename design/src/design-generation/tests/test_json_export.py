@@ -25,7 +25,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from contur.core import console_utils  # noqa: F401  (кодировка вывода, как в точках входа)
 from contur.lua import queries
-from contur.export import exporters
+from contur import exporters as exporters
 from contur.core.data_models import Contour, DeviceMatch, Operation
 from contur.export.json_export import export_current_visualization_json
 from contur.export.xml_export import export_current_visualization

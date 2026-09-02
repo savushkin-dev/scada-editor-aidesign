@@ -30,7 +30,7 @@ from contur.lua.parse_lua import lua_table_to_python, merge_lua_data, read_file_
 from contur.lua.parse_lua_objects import extract_all_data, parse_objects_file
 from contur.pdf.pdf_processor import (MAX_FAILED_SHARE, DeviceDetector, DeviceLabeler,
                            _median_device_size, iter_markup_elements, point_in_device)
-from contur.core.segments import SegmentData
+from contur.core.data_models import SegmentData
 
 
 class GeometryExtractionThread(QThread):

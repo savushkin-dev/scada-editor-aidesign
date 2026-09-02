@@ -23,9 +23,9 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from contur.core import config
 from contur.core import console_utils  # noqa: F401  (кодировка вывода, как в точках входа)
-from contur.export import hmi_export
-from contur.export import hmi_symbols
-from contur.export.hmi_export import HMIExporter, export_current_visualization_hmi
+from contur.hmi import exporter as hmi_export
+from contur.hmi import symbols as hmi_symbols
+from contur.hmi.exporter import HMIExporter, export_current_visualization_hmi
 from contur.lua import queries
 from dataclasses import replace
 
@@ -265,7 +265,7 @@ def test_symbol_size_falls_back_to_the_usual_one():
 
 
 def test_circle_box_is_exactly_two_radii():
-    # Принимающая сторона проверяет равенство габарита двум радиусам,
+    # Редактор проверяет равенство габарита двум радиусам,
     # а округление радиуса и габарита порознь расходилось на 0.001
     for device in _devices(_elements(scale=1.7)):
         if device["type"] != "circle":

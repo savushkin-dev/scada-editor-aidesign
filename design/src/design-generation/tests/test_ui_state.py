@@ -912,7 +912,7 @@ def test_left_panel_has_everything_window_relies_on():
 
 
 def test_window_loads_back_what_it_exported():
-    # Разбор XML вынесен в xml_io и проверяется там без окна. Здесь
+    # Разбор XML вынесен в xml_reader и проверяется там без окна. Здесь
     # проверяется связка: окно должно разложить прочитанное по своим полям,
     # назначить цвета и перестроить дерево.
     import shutil

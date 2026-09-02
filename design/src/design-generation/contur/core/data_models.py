@@ -1,11 +1,15 @@
 # data_models.py
 # Модели данных не зависят от Qt: их использует и headless-конвейер
-# (device_matcher, экспортёры), и GUI.
+# (сопоставление, сцена, выгрузки), и окно.
+#
+# Отрезки и контуры жили отдельным модулем (`segment_data.py`) — те же
+# dataclass'ы без поведения и без зависимостей, разделённые только тем,
+# что появились в разное время.
 from dataclasses import dataclass, field
-from typing import List, Tuple, Optional, Dict, Any
+from typing import Any, Dict, List, Optional, Tuple
 
-
-# data_models.py
+# Точка на листе: пара координат
+Point = Tuple[float, float]
 
 @dataclass
 class DeviceMatch:
@@ -108,3 +112,19 @@ class Operation:
     obj_id: str
     obj_name: str
     props: Dict[str, Any] = field(default_factory=dict)
+
+
+
+@dataclass
+class SegmentData:
+    p1: Point
+    p2: Point
+    dashed: bool = False
+
+@dataclass
+class ClosedContour:
+    segments: List[int]
+    bounds: Tuple[float, float, float, float]
+    center: Point
+    name: Optional[str] = None
+    name_position: Optional[Point] = None

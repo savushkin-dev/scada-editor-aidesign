@@ -49,7 +49,7 @@ import re
 from collections import Counter
 from typing import Any, Dict, List, Optional, Tuple
 
-from contur.export import hmi_symbols
+from contur.hmi import symbols as hmi_symbols
 
 # Сетка холста редактора: к ней прижимаются размеры символа (спецификация импорта, §0)
 GRID = 20.0

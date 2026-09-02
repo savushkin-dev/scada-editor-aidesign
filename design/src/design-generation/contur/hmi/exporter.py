@@ -99,7 +99,7 @@ import uuid
 from typing import Any, Dict, List, Optional, Set, Tuple
 
 from contur.core import config
-from contur.export import hmi_symbols
+from contur.hmi import symbols as hmi_symbols
 from contur.core.data_models import Contour, DeviceMatch
 from contur.scene import ExportScene, build_scene
 from contur.lua.queries import (
@@ -177,7 +177,7 @@ CONTOUR_LABEL_CELLS = (-2, -1)
 # Кегли подписей — сразу в единицах холста, а не в пунктах листа.
 # У нас в окне Arial 8 у устройства и Arial 10 у контура, но это расчёт
 # на печатный лист: на экране при зуме «весь лист» (0.2-0.35) восемь пунктов
-# превращаются в 2-3 пикселя и не читаются вовсе. Их спецификация импорта
+# превращаются в 2-3 пикселя и не читаются вовсе. Спецификация импорта
 # (§4) просит 12 и 16, и меньше 12 не советует никому
 DEVICE_LABEL_SIZE = 12.0
 CONTOUR_LABEL_SIZE = 16.0
@@ -1150,7 +1150,7 @@ class HMIExporter:
         """Рамка техобъекта прямоугольником плюс его имя.
 
         Раньше собиралась из четырёх линий: тип `rect` в присланных образцах
-        не встречался, и казалось, что его нет. Их спецификация импорта
+        не встречался, и казалось, что его нет. Спецификация импорта
         (§5.3) описывает `rectangle` прямо — одна фигура вместо четырёх,
         её можно выделить и подвинуть целиком, а на контрольном листе это
         33 элемента вместо 132.
