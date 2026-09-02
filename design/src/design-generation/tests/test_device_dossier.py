@@ -19,10 +19,10 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-import console_utils  # noqa: F401  (кодировка вывода, как в точках входа)
-import device_dossier
-from data_models import DeviceMatch
-from objects_loader import objects_data
+from contur.core import console_utils  # noqa: F401  (кодировка вывода, как в точках входа)
+from contur.matching import device_dossier
+from contur.core.data_models import DeviceMatch
+from contur.lua.objects_loader import objects_data
 
 OBJECTS = {
     "tech_objects": [

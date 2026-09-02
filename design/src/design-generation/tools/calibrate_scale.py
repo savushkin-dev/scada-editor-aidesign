@@ -19,8 +19,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-import console_utils  # noqa: F401  (настройка кодировки вывода)
-import config
+from contur.core import console_utils  # noqa: F401  (настройка кодировки вывода)
+from contur.core import config
 
 import argparse
 import contextlib
@@ -31,7 +31,7 @@ import time
 
 import cv2
 
-from pdf_processor import DeviceDetector, PDFToPNGConverter
+from contur.pdf.pdf_processor import DeviceDetector, PDFToPNGConverter
 
 # Пары «DPI рендера × размер плитки». Шаг всегда 75% плитки.
 DEFAULT_GRID = [

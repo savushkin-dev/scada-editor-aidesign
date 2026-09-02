@@ -12,8 +12,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-import console_utils  # noqa: F401  (кодировка вывода, как в точках входа)
-from hmi_validate import GRID, format_report, validate
+from contur.core import console_utils  # noqa: F401  (кодировка вывода, как в точках входа)
+from contur.hmi.validate import GRID, format_report, validate
 
 
 def _element(kind, key, **fields):
@@ -168,22 +168,33 @@ def test_percent_coordinates_are_caught():
 
 
 def test_big_sheet_is_measured_but_not_blamed():
-    """Лист больше 5000 — это размер, а не поломка.
+    """Крупный лист — это размер, а не поломка.
 
     Проверка шла от «мира 5000x5000» из спецификации, и лист A0 стоял
-    красным всегда. На поверку 5000 в редакторе — протяжённость
-    нарисованной сетки, координаты не
-    ограничены ничем, а нижнюю границу зума они опускают до 0.05, чтобы
-    открывался любой формат. Размер при этом важен сам по себе и остаётся
+    красным всегда. Мира этого не существует: размер сцены задаётся
+    блоком canvas и служит рамкой, а не пределом (§7a), координаты за ней
+    работают как обычно. Размер при этом важен сам по себе и остаётся
     в отчёте числом.
     """
     far = _circle(x=6000.0, y=100.0)
 
     problems, stats = validate([far])
     assert not [p for p in problems if "не влезает" in p], "размер листа — не замечание"
-    assert stats["за_холстом"] == 1, "размер листа потерян"
-    assert stats["холст_ширина"] >= 6000
-    assert "больше нарисованной сетки" in format_report(problems, stats)
+    assert stats["холст_ширина"] >= 6000, "размер листа потерян"
+    assert "рамка сцены" in format_report(problems, stats)
+
+
+def test_sheet_size_off_the_grid_is_caught():
+    # По объявленному размеру редактор рисует рамку сцены, и §7a требует
+    # от него кратности сетке. Меряется именно объявленный блок, а не
+    # габарит содержимого: у диагоналей координаты точные и по §3.1 такими
+    # и остаются
+    meta = {"key": "meta", "type": "meta", "parentKey": "undefined",
+            "canvas": {"width": 11900, "height": 8400, "grid": 20}}
+    assert not [p for p in validate([_circle(), meta])[0] if "canvas" in p]
+
+    meta["canvas"]["height"] = 8433.5
+    assert [p for p in validate([_circle(), meta])[0] if "canvas.height" in p]
 
 
 def test_symbol_parts_are_not_measured_by_the_grid():

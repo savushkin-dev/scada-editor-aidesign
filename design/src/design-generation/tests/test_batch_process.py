@@ -23,8 +23,8 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 import batch_process
-import config
-import console_utils  # noqa: F401  (кодировка вывода, как в точках входа)
+from contur.core import config
+from contur.core import console_utils  # noqa: F401  (кодировка вывода, как в точках входа)
 from batch_process import parse_pages
 
 ROOT = Path(__file__).resolve().parent.parent

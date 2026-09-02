@@ -20,9 +20,9 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-import config
-import console_utils  # noqa: F401  (кодировка вывода, как в точках входа)
-from device_matcher import (BARE_NAME_CONFIDENCE, LABEL_ABOVE_CONFIDENCE,
+from contur.core import config
+from contur.core import console_utils  # noqa: F401  (кодировка вывода, как в точках входа)
+from contur.matching.device_matcher import (BARE_NAME_CONFIDENCE, LABEL_ABOVE_CONFIDENCE,
                             SHEET_OBJECT_CONFIDENCE,
                             build_match_report, format_match_report, match_devices,
                             nearest_contour_below, sheet_object_from_texts)

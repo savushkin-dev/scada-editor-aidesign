@@ -18,7 +18,7 @@ from PySide6.QtWidgets import QApplication, QGraphicsRectItem
 
 
 def _view():
-    from widgets import GraphicsView
+    from contur.ui.widgets import GraphicsView
     QApplication.instance() or QApplication([])
 
     view = GraphicsView()
@@ -195,7 +195,7 @@ def test_wheel_zooms_at_the_cursor():
 def test_view_can_be_dragged_even_when_everything_fits():
     # Пока лист помещался в окно, sceneRect был равен рамке содержимого:
     # полос прокрутки нет, вид намертво стоит по центру, двигать нечем
-    from widgets import GraphicsView
+    from contur.ui.widgets import GraphicsView
     QApplication.instance() or QApplication([])
 
     view = GraphicsView()
@@ -210,7 +210,7 @@ def test_view_can_be_dragged_even_when_everything_fits():
 
 
 def test_scene_margin_grows_with_the_drawing():
-    from widgets import GraphicsView
+    from contur.ui.widgets import GraphicsView
     QApplication.instance() or QApplication([])
 
     view = GraphicsView()

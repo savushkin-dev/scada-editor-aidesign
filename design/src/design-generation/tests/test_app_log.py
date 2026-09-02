@@ -20,8 +20,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-import app_log
-import console_utils  # noqa: F401  (кодировка вывода, как в точках входа)
+from contur.ui import app_log
+from contur.core import console_utils  # noqa: F401  (кодировка вывода, как в точках входа)
 
 
 class _Sandbox:

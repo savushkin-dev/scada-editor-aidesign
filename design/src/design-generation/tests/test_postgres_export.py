@@ -21,8 +21,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-import postgreSQL_export
-from data_models import Contour, DeviceMatch
+from contur.export import postgres_export
+from contur.core.data_models import Contour, DeviceMatch
 
 # Холст совпадает с размером «страницы PDF»: тогда масштаб равен единице
 # и координаты в процентах считаются от этих же чисел
@@ -131,22 +131,22 @@ def _run_export(svg_path, fail_on=None, mode=None, **kwargs):
     log = []
     fake = types.SimpleNamespace(connect=lambda **_: FakeConnection(log, fail_on))
 
-    original = postgreSQL_export.psycopg2
-    postgreSQL_export.psycopg2 = fake
+    original = postgres_export.psycopg2
+    postgres_export.psycopg2 = fake
     try:
-        exporter = postgreSQL_export.PostgresExporter(
+        exporter = postgres_export.PostgresExporter(
             db_config={"host": "localhost", "database": "test"},
             pdf_size=CANVAS, **kwargs)
         extra = {"mode": mode} if mode else {}
         success = exporter.export(svg_path, MATCHES, CONTOURS, **extra)
     finally:
-        postgreSQL_export.psycopg2 = original
+        postgres_export.psycopg2 = original
 
     return success, log
 
 
 def _svg_file(tmp_name="_postgres_test.svg"):
-    import config
+    from contur.core import config
     config.ensure_output_dir()
     path = config.OUTPUT_DIR / tmp_name
     path.write_text(SVG, encoding="utf-8")
@@ -187,7 +187,7 @@ def test_no_query_is_built_from_data():
     import ast
 
     source = (Path(__file__).resolve().parent.parent /
-              "postgreSQL_export.py").read_text(encoding="utf-8")
+              "contur" / "export" / "postgres_export.py").read_text(encoding="utf-8")
 
     suspicious = []
     for node in ast.walk(ast.parse(source)):
@@ -397,22 +397,22 @@ def test_failed_connection_reports_without_raising():
     def refuse(**_):
         raise OSError("сервер не отвечает")
 
-    original = postgreSQL_export.psycopg2
-    postgreSQL_export.psycopg2 = types.SimpleNamespace(connect=refuse)
+    original = postgres_export.psycopg2
+    postgres_export.psycopg2 = types.SimpleNamespace(connect=refuse)
     try:
-        exporter = postgreSQL_export.PostgresExporter(db_config={"host": "нет"})
+        exporter = postgres_export.PostgresExporter(db_config={"host": "нет"})
         assert exporter.export("нет.svg", MATCHES, CONTOURS) is False, \
             "недоступная база должна давать отказ, а не исключение"
     finally:
-        postgreSQL_export.psycopg2 = original
+        postgres_export.psycopg2 = original
 
 
 def test_settings_have_single_source():
     # config.DB_CONFIG держит пустой пароль, а DEFAULT_DB_CONFIG в экспортёре —
     # зашитый 'postgres'. Два источника правды расходятся молча.
-    import config
+    from contur.core import config
 
-    default = postgreSQL_export.PostgresExporter.DEFAULT_DB_CONFIG
+    default = postgres_export.PostgresExporter.DEFAULT_DB_CONFIG
     assert default.get("password", "") == config.DB_CONFIG["password"], (
         "настройки базы заданы в двух местах и расходятся: "
         f"экспортёр {default.get('password')!r}, config "

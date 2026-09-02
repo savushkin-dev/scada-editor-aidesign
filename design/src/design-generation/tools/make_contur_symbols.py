@@ -31,7 +31,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-import console_utils  # noqa: F401  (настройка кодировки вывода)
+from contur.core import console_utils  # noqa: F401  (настройка кодировки вывода)
 
 import argparse
 import json

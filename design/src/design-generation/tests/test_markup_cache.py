@@ -20,8 +20,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-import console_utils  # noqa: F401  (кодировка вывода, как в точках входа)
-import markup_cache
+from contur.core import console_utils  # noqa: F401  (кодировка вывода, как в точках входа)
+from contur.pdf import markup_cache
 
 PARAMS = {"dpi": 300, "tile": 1024, "step": 768}
 

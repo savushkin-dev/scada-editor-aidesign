@@ -21,12 +21,12 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-import config
-import console_utils  # noqa: F401  (кодировка вывода, как в точках входа)
-import hmi_export
-import hmi_symbols
-from hmi_export import HMIExporter, export_current_visualization_hmi
-import export_scene
+from contur.core import config
+from contur.core import console_utils  # noqa: F401  (кодировка вывода, как в точках входа)
+from contur.hmi import exporter as hmi_export
+from contur.hmi import symbols as hmi_symbols
+from contur.hmi.exporter import HMIExporter, export_current_visualization_hmi
+from contur.lua import queries
 from dataclasses import replace
 
 from test_json_export import (
@@ -138,12 +138,12 @@ def _with_operations(**kwargs):
     Настоящее приходит из main.objects.lua; проверкам нужно знать, что
     состояния устройства доезжают до элемента, а не какие они бывают.
     """
-    was = export_scene.objects_data
-    export_scene.objects_data = _FakeObjectsData()
+    was = queries.objects_data
+    queries.objects_data = _FakeObjectsData()
     try:
         return _elements(**kwargs)
     finally:
-        export_scene.objects_data = was
+        queries.objects_data = was
 
 
 # ---------------------------------------------------------------- форма файла
@@ -265,7 +265,7 @@ def test_symbol_size_falls_back_to_the_usual_one():
 
 
 def test_circle_box_is_exactly_two_radii():
-    # Принимающая сторона проверяет равенство габарита двум радиусам,
+    # Редактор проверяет равенство габарита двум радиусам,
     # а округление радиуса и габарита порознь расходилось на 0.001
     for device in _devices(_elements(scale=1.7)):
         if device["type"] != "circle":
@@ -467,7 +467,7 @@ def test_tech_object_colour_does_not_jump_between_runs():
     # при каждом запуске Python: у объекта менялся цвет от запуска к запуску
     import subprocess
 
-    code = ("import sys; sys.path.insert(0, r'%s'); import config; "
+    code = ("import sys; sys.path.insert(0, r'%s'); from contur.core import config; "
             "print(config.tech_object_color('TANK1'))" % str(ROOT))
     runs = {subprocess.run([sys.executable, "-c", code], capture_output=True,
                            text=True).stdout.strip() for _ in range(3)}
@@ -696,10 +696,11 @@ def test_meta_describes_the_sheet():
     assert meta["type"] == "meta" and meta["contur_meta"] is True
     assert meta["sheet"]["width"] == PAGE[0], "размер листа в пунктах"
     assert meta["sheet"]["height"] == PAGE[1]
-    # Холст меряется по содержимому: по нему редактор проверяет,
-    # что схема влезла в свой мир 5000x5000
-    assert 0 < meta["canvas"]["width"] <= 5000
-    assert 0 < meta["canvas"]["height"] <= 5000
+    # Размер листа меряется по содержимому и кратен сетке: по нему
+    # редактор рисует рамку сцены и считает координаты в процентах (§7a)
+    assert meta["canvas"]["width"] > 0 and meta["canvas"]["height"] > 0
+    assert meta["canvas"]["width"] % 20 == 0
+    assert meta["canvas"]["height"] % 20 == 0
     assert meta["canvas"]["grid"] == 20
     tanks = [e for e in elements if e.get("contur_tank")]
     assert meta["counts"]["group"] == len(MATCHES) + len(tanks)
@@ -712,6 +713,33 @@ def test_meta_describes_the_sheet():
     left, top = _place(elements, minx, miny)
     right, bottom = _place(elements, maxx, maxy)
     assert tech_object["contour"]["bounds"] == [left, top, right, bottom]
+
+
+def test_sheet_size_stays_on_grid_behind_a_diagonal():
+    """Диагональ дальше всех не должна утаскивать размер листа с сетки.
+
+    Ортогональные отрезки садятся на узлы, а диагонали и звенья кривых
+    по §3.1 остаются с точными координатами. Стоит такой линии оказаться
+    крайней — и край листа перестаёт быть кратным 20, а по нему редактор
+    рисует рамку сцены.
+    """
+    workdir = Path(tempfile.mkdtemp(prefix="contur_hmi_"))
+    svg_path = workdir / "marked.svg"
+    svg_path.write_text(
+        MARKED_SVG.replace(
+            "</svg>",
+            '  <line x1="450" y1="500" x2="520.7" y2="610.3" '
+            'stroke="blue" stroke-width="2"/>\n</svg>'),
+        encoding="utf-8")
+    out_path = workdir / "hmi.json"
+
+    exporter = HMIExporter(pdf_size=PAGE)
+    with contextlib.redirect_stdout(io.StringIO()):
+        assert exporter.export(str(svg_path), str(out_path), MATCHES, CONTOURS)
+
+    canvas = _meta(json.loads(out_path.read_text(encoding="utf-8")))["canvas"]
+    assert canvas["width"] % hmi_export.GRID == 0, canvas["width"]
+    assert canvas["height"] % hmi_export.GRID == 0, canvas["height"]
 
 
 def test_meta_carries_operation_programs():

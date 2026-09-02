@@ -14,8 +14,8 @@
 #     python batch_process.py --pdf схема.pdf --io-lua main.io.lua --objects-lua main.objects.lua
 #     python batch_process.py --pdf схема.pdf --io-lua main.io.lua main.wago.lua ...
 #     python batch_process.py --pdf схема.pdf --pages 1-20 --out результаты
-import console_utils  # noqa: F401  (настройка кодировки вывода)
-import config
+from contur.core import console_utils  # noqa: F401  (настройка кодировки вывода)
+from contur.core import config
 
 import argparse
 import contextlib
@@ -80,15 +80,15 @@ def export_counts(path: Path) -> dict:
 
 
 def process_page(page: int, args, shared) -> dict:
-    from extract_geometry import extract_line_segments, extract_text_elements
-    from segment_data import SegmentData
-    from contour_detector import find_contours, find_all_contour_names_by_proximity, gen_xml
-    from device_matcher import (load_pdf_geometry, find_pdf_device_texts, match_devices,
+    from contur.pdf.extract_geometry import extract_line_segments, extract_text_elements
+    from contur.core.data_models import SegmentData
+    from contur.pdf.contour_detector import find_contours, find_all_contour_names_by_proximity, gen_xml
+    from contur.matching.device_matcher import (load_pdf_geometry, find_pdf_device_texts, match_devices,
                                 build_match_report, sheet_object_from_texts)
-    from data_models import Contour
-    from pdf_processor import PDFToSVGConverter
-    from exporters import export_visualization
-    from xml_export import get_pdf_page_size
+    from contur.core.data_models import Contour
+    from contur.pdf.pdf_processor import PDFToSVGConverter
+    from contur.exporters import export_visualization
+    from contur.export.xml_export import get_pdf_page_size
 
     result = {"page": page + 1}
     started = time.perf_counter()
@@ -201,10 +201,10 @@ def main() -> int:
             print(f"❌ Нет файла: {path}")
             return 2
 
-    from extract_geometry import page_count
-    from parse_lua import merge_lua_data, parse_lua_file
-    from parse_lua_objects import parse_objects_file, extract_all_data
-    from device_matcher import extract_lua_names
+    from contur.pdf.extract_geometry import page_count
+    from contur.lua.parse_lua import merge_lua_data, parse_lua_file
+    from contur.lua.parse_lua_objects import parse_objects_file, extract_all_data
+    from contur.matching.device_matcher import extract_lua_names
 
     total = page_count(args.pdf)
     pages = parse_pages(args.pages, total)
@@ -228,7 +228,7 @@ def main() -> int:
     # и каждая страница уезжала без состояний устройств: `contur_states`
     # не было ни у одного из 233 устройств контрольного листа, хотя тот же
     # лист через окно и через check_pipeline давал 1911
-    from objects_loader import objects_data
+    from contur.lua.objects_loader import objects_data
 
     objects_data.load_from_json(lua_objects)
     print(f"   устройств: {len(lua_devices['devices'])}, "

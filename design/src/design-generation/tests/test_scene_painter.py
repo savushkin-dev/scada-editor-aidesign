@@ -23,10 +23,10 @@ from PySide6.QtGui import QColor
 from PySide6.QtWidgets import (QApplication, QGraphicsRectItem,
                                QGraphicsScene, QGraphicsTextItem)
 
-import console_utils  # noqa: F401  (кодировка вывода, как в точках входа)
-import scene_painter
-from data_models import Contour, DeviceMatch
-from widgets import DeviceGraphicsItem, TextItemWithBackground
+from contur.core import console_utils  # noqa: F401  (кодировка вывода, как в точках входа)
+from contur.ui import scene_painter
+from contur.core.data_models import Contour, DeviceMatch
+from contur.ui.widgets import DeviceGraphicsItem, TextItemWithBackground
 
 CONTOURS = [
     Contour(name="LA_TANK1", bounds=(0.0, 0.0, 100.0, 80.0),
@@ -207,7 +207,7 @@ def test_device_draws_nothing_until_it_is_touched():
 
 
 def test_outline_appears_under_the_cursor():
-    import config
+    from contur.core import config
 
     scene = _scene()
     match = DeviceMatch(lua_name="X", pdf_name="X", tech_object="LA_TANK1",
@@ -288,7 +288,7 @@ def test_without_geometry_the_outline_falls_back_to_the_box():
 def test_flat_symbol_does_not_collapse_the_hit_area():
     # У лежачего клапана кластер вырождается в отрезок: без нижней границы
     # площадь устройства стала бы линией, по которой не попасть курсором
-    import config
+    from contur.core import config
 
     scene = _scene()
     match = DeviceMatch(lua_name="X", pdf_name="X", tech_object="LA_TANK1",
@@ -325,8 +325,8 @@ def test_background_survives_redraw():
     # scene.clear() удаляет объекты вместе с их C++ частью, и SVG после
     # каждой перерисовки перечитывался с диска — на листе A0 это полтора
     # мегабайта на каждую смену фильтра
-    import config
-    from widgets import GraphicsView
+    from contur.core import config
+    from contur.ui.widgets import GraphicsView
 
     QApplication.instance() or QApplication([])
     svg = config.ensure_output_dir() / "_painter_test.svg"
@@ -349,7 +349,7 @@ def test_background_survives_redraw():
 
 
 def test_redraw_without_background_does_not_break():
-    from widgets import GraphicsView
+    from contur.ui.widgets import GraphicsView
 
     QApplication.instance() or QApplication([])
     view = GraphicsView()
@@ -363,10 +363,10 @@ def test_redraw_without_background_does_not_break():
 
 def test_options_are_taken_from_the_window():
     # Единственное место, где рисование соприкасается с виджетами
-    import xml_viewer
+    from contur.ui import main_window
 
     QApplication.instance() or QApplication([])
-    window = xml_viewer.DeviceVisualizer()
+    window = main_window.DeviceVisualizer()
 
     options = scene_painter.options_from_window(window)
     assert options.contours and options.devices, "слои выключены при запуске"

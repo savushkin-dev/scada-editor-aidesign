@@ -11,14 +11,14 @@ from pathlib import Path
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from data_models import Contour, DeviceMatch
+from contur.core.data_models import Contour, DeviceMatch
 
 
 def _window():
     from PySide6.QtWidgets import QApplication
-    import xml_viewer
+    from contur.ui import main_window
     QApplication.instance() or QApplication([])
-    return xml_viewer.DeviceVisualizer(), xml_viewer.LoadedScheme
+    return main_window.DeviceVisualizer(), main_window.LoadedScheme
 
 
 def _scheme(cls, name: str, page: int = 0, devices: int = 1):

@@ -20,9 +20,9 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-import config
-import console_utils  # noqa: F401  (кодировка вывода, как в точках входа)
-import parse_lua_shared
+from contur.core import config
+from contur.core import console_utils  # noqa: F401  (кодировка вывода, как в точках входа)
+from contur.lua import parse_lua_shared
 
 MCA = config.INPUT_DIR.parent / "inputMCA"
 
@@ -132,7 +132,7 @@ def test_real_project_joins_completely():
     if not (MCA / "shared.lua").exists():
         return
 
-    import parse_lua
+    from contur.lua import parse_lua
 
     data = parse_lua.parse_lua_file(str(MCA / "main.io.lua"))
     names = {(d.get("name") or "").upper() for d in data["devices"]}

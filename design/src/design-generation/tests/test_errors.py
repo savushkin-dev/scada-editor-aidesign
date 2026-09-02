@@ -17,8 +17,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-import console_utils  # noqa: F401  (кодировка вывода, как в точках входа)
-import errors
+from contur.core import console_utils  # noqa: F401  (кодировка вывода, как в точках входа)
+from contur.core import errors
 
 
 class EmptyFileError(Exception):
@@ -113,7 +113,7 @@ def test_scan_is_explained_not_silently_empty():
 
 def test_module_stays_light():
     # Модуль зовут из мест, где ни PyMuPDF, ни Lua не загружены
-    source = (Path(__file__).resolve().parent.parent / "errors.py").read_text(
+    source = (Path(__file__).resolve().parent.parent / "contur" / "core" / "errors.py").read_text(
         encoding="utf-8")
     for heavy in ("import fitz", "import lupa", "PySide6"):
         assert heavy not in source, f"в сообщения об ошибках попал {heavy}"

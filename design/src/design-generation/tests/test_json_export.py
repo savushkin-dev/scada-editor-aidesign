@@ -3,7 +3,7 @@
 #
 # Смысл проверок не в том, что JSON записывается, а в том, что он описывает
 # тот же лист, что и XML. Каналов выдачи два, собираются они одним кодом
-# (export_scene), и разъехаться могут только в сериализации — значит именно
+# (contur/scene.py), и разъехаться могут только в сериализации — значит именно
 # её и надо сверять: те же устройства, те же координаты, те же связи.
 #
 # Лист собирается синтетический: настоящая разметка весит полтора мегабайта
@@ -23,12 +23,12 @@ from typing import ClassVar
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-import console_utils  # noqa: F401  (кодировка вывода, как в точках входа)
-import export_scene
-import exporters
-from data_models import Contour, DeviceMatch, Operation
-from json_export import export_current_visualization_json
-from xml_export import export_current_visualization
+from contur.core import console_utils  # noqa: F401  (кодировка вывода, как в точках входа)
+from contur.lua import queries
+from contur import exporters as exporters
+from contur.core.data_models import Contour, DeviceMatch, Operation
+from contur.export.json_export import export_current_visualization_json
+from contur.export.xml_export import export_current_visualization
 
 # Холст A4 в пунктах: система координат сойдётся как pdf_pts.
 # Геометрия держится подальше от кромок — линии в 3% от края
@@ -116,7 +116,7 @@ def test_devices_match_xml():
 
 
 def test_geometry_counts_match_xml():
-    # Точки сопряжения, трубы и связи считаются один раз в export_scene,
+    # Точки сопряжения, трубы и связи считаются один раз в сцене,
     # но записываются по-разному: в XML счётчиками, в JSON длиной массивов
     root, document = _export_both()
 
@@ -280,12 +280,12 @@ class _FakeObjectsData:
 
 
 def _with_operation():
-    was = export_scene.objects_data
-    export_scene.objects_data = _FakeObjectsData()
+    was = queries.objects_data
+    queries.objects_data = _FakeObjectsData()
     try:
         return _export_both(current_operation_id="OP1")
     finally:
-        export_scene.objects_data = was
+        queries.objects_data = was
 
 
 def test_operation_reaches_both_formats():

@@ -13,9 +13,9 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from PySide6.QtWidgets import QApplication
 
-import app_settings
-import config
-from data_models import Contour, DeviceMatch
+from contur.ui import app_settings
+from contur.core import config
+from contur.core.data_models import Contour, DeviceMatch
 
 # Настройки пользователя проверки трогать не должны: уводим хранилище
 # в отдельное имя до создания первого окна — окно читает их в конструкторе
@@ -24,9 +24,9 @@ app_settings.APPLICATION = "ViewerTests"
 
 def _window():
     from PySide6.QtWidgets import QApplication
-    import xml_viewer
+    from contur.ui import main_window
     QApplication.instance() or QApplication([])
-    window = xml_viewer.DeviceVisualizer()
+    window = main_window.DeviceVisualizer()
     window.resize(800, 600)
     window.show()
     return window
@@ -139,7 +139,7 @@ def test_device_under_cursor_is_named():
 
 def _operation():
     # Описание объектов — общее на процесс, поэтому проверка загружает своё
-    from objects_loader import objects_data
+    from contur.lua.objects_loader import objects_data
     objects_data.load_from_json({
         "tech_objects": [{"id": "1", "n": 1, "name": "Танк",
                           "name_eplan": "LA_TANK1", "name_BC": "TANK1",
@@ -154,7 +154,7 @@ def _operation():
 
 
 def _selected_on_scene(window):
-    from widgets import DeviceGraphicsItem
+    from contur.ui.widgets import DeviceGraphicsItem
     return [item.device_data for item in window.graphics_view._scene.items()
             if isinstance(item, DeviceGraphicsItem) and item.selected]
 
@@ -429,7 +429,7 @@ def test_panel_is_the_only_one():
     # Информация» было две: своя у браузера операций и общая справа.
     # Половина данных не показывалась ни в одной, а искать приходилось
     # в обеих
-    from details_panel import DetailsPanel
+    from contur.ui.details_panel import DetailsPanel
 
     window = _window()
     panels = window.findChildren(DetailsPanel)
@@ -518,7 +518,7 @@ def test_detection_stops_when_asked():
     # Детекция занимает почти всё время разметки. Прерывания не было вовсе:
     # начатую разметку оставалось только пересидеть или закрыть приложение
     import numpy as np
-    from pdf_processor import DeviceDetector
+    from contur.pdf.pdf_processor import DeviceDetector
 
     detector = DeviceDetector("модели-нет.pt", tile_size=64, step=64)
     detector.model = _FakeModel()
@@ -566,7 +566,7 @@ def test_cancelled_markup_leaves_cache_alone():
     # Недосчитанная разметка не должна попасть в кэш: иначе лист навсегда
     # остался бы пустым, а причину было бы не найти
     import inspect
-    from workers import YOLOMarkingThread
+    from contur.ui.workers import YOLOMarkingThread
 
     source = inspect.getsource(YOLOMarkingThread.run)
     store_at = source.find("markup_cache.store")
@@ -647,8 +647,8 @@ def test_window_fits_small_screen():
 
     window = _window()
     screen = QGuiApplication.primaryScreen().availableGeometry()
-    import xml_viewer
-    fresh = xml_viewer.DeviceVisualizer()
+    from contur.ui import main_window
+    fresh = main_window.DeviceVisualizer()
 
     assert fresh.width() <= screen.width() and fresh.height() <= screen.height(), \
         f"окно {fresh.width()}x{fresh.height()} больше экрана " \
@@ -659,7 +659,7 @@ def test_cached_markup_is_offered_without_asking():
     # Размеченный ранее лист достаётся из кэша за доли секунды — ждать
     # нажатия кнопки незачем. Новый лист по-прежнему ждёт: занимать машину
     # на полторы минуты без спроса нельзя
-    import markup_cache
+    from contur.pdf import markup_cache
 
     window = _window()
     window.current_pdf_path = "C:/схемы/нет-такого.pdf"
@@ -686,7 +686,7 @@ def test_cached_markup_is_offered_without_asking():
 def test_postgres_asks_once():
     # Раньше хост, база, пользователь и пароль спрашивались четырьмя окнами
     # подряд: ошибся в первом — проходи все заново. Порт был зашит числом
-    from widgets import PostgresDialog
+    from contur.ui.widgets import PostgresDialog
 
     window = _window()
     dialog = PostgresDialog(window)
@@ -800,8 +800,8 @@ def test_scan_is_refused_with_an_explanation():
 
     import fitz
 
-    import errors
-    from workers import GeometryExtractionThread
+    from contur.core import errors
+    from contur.ui.workers import GeometryExtractionThread
 
     folder = Path(tempfile.mkdtemp(prefix="contur_scan_"))
     try:
@@ -834,7 +834,7 @@ def test_cache_can_be_cleared_from_the_window():
 
     from PySide6.QtWidgets import QMessageBox
 
-    import markup_cache
+    from contur.pdf import markup_cache
 
     window = _window()
     was_dir, was_disabled = markup_cache.CACHE_DIR, markup_cache.DISABLED
@@ -912,7 +912,7 @@ def test_left_panel_has_everything_window_relies_on():
 
 
 def test_window_loads_back_what_it_exported():
-    # Разбор XML вынесен в xml_io и проверяется там без окна. Здесь
+    # Разбор XML вынесен в xml_reader и проверяется там без окна. Здесь
     # проверяется связка: окно должно разложить прочитанное по своим полям,
     # назначить цвета и перестроить дерево.
     import shutil
@@ -974,7 +974,7 @@ def test_device_tree_shows_state_in_operation():
     # Вид с состояниями в операции был отдельным методом-двойником:
     # 16 значимых строк из 24 дословно совпадали с обычным деревом,
     # и не покрывался он ничем
-    from objects_loader import objects_data
+    from contur.lua.objects_loader import objects_data
 
     window = _fill(_window(), devices=3)
 
@@ -1019,7 +1019,7 @@ def test_device_tree_shows_state_in_operation():
 def test_operation_view_keeps_the_search():
     # Обычное дерево применяло введённый поиск заново, вид с операцией —
     # нет, и переключение на операцию показывало снова все устройства
-    from objects_loader import objects_data
+    from contur.lua.objects_loader import objects_data
 
     window = _fill(_window(), devices=3)
     window.device_search.setText("V1")
@@ -1048,7 +1048,7 @@ def test_parsing_writes_where_config_says():
     import shutil
     import tempfile
 
-    from workers import LuaParsingThread
+    from contur.ui.workers import LuaParsingThread
 
     lua = config.INPUT_DIR / "test" / "main.io.lua"
     if not lua.exists():
@@ -1079,7 +1079,7 @@ def test_no_relative_paths_left_in_live_code():
     # Сторож от возврата: девять таких строк уже нашлись разом,
     # и найти их можно было только перебором
     root = Path(__file__).resolve().parent.parent
-    live = ("workers.py", "xml_viewer.py", "device_matcher.py", "pdf_processor.py",
+    live = ("workers.py", "main_window.py", "device_matcher.py", "pdf_processor.py",
             "objects_loader.py", "widgets.py")
 
     offenders = {}
@@ -1207,7 +1207,7 @@ def test_postgres_asks_before_duplicating():
     # листа в схеме нет — отличить одну выгрузку от другой база не может.
     # Значит выбор «дописать или заменить» делает человек, и по умолчанию
     # стоит тот, который не может уничтожить чужие данные.
-    from widgets import PostgresDialog
+    from contur.ui.widgets import PostgresDialog
 
     window = _window()
     dialog = PostgresDialog(window)
@@ -1231,7 +1231,7 @@ def test_postgres_asks_before_duplicating():
 
 def test_postgres_mode_reaches_the_thread():
     # Выбор в диалоге должен доходить до экспортёра, иначе он украшение
-    from workers import PostgresExportThread
+    from contur.ui.workers import PostgresExportThread
 
     thread = PostgresExportThread("нет.svg", [], [], {}, mode="replace")
     assert thread.mode == "replace", "режим не доходит до потока выгрузки"
@@ -1242,7 +1242,7 @@ def test_postgres_mode_reaches_the_thread():
 
 def test_postgres_password_is_not_stored():
     # Пароль не кладём в реестр открытым текстом
-    from widgets import PostgresDialog
+    from contur.ui.widgets import PostgresDialog
 
     window = _window()
     dialog = PostgresDialog(window)
@@ -1256,13 +1256,13 @@ def test_postgres_export_runs_in_thread():
     # Экспорт шёл в потоке окна: Windows показывала его как переставшее
     # отвечать, пока идёт разбор SVG и запись в базу
     from PySide6.QtCore import QThread
-    from workers import PostgresExportThread
+    from contur.ui.workers import PostgresExportThread
 
     assert issubclass(PostgresExportThread, QThread)
 
     import inspect
-    import xml_viewer
-    source = inspect.getsource(xml_viewer.DeviceVisualizer.export_to_postgresql)
+    from contur.ui import main_window
+    source = inspect.getsource(main_window.DeviceVisualizer.export_to_postgresql)
     assert "PostgresExportThread" in source, "экспорт по-прежнему в потоке окна"
     assert "processEvents" not in source, "остался обход зависания через processEvents"
 
@@ -1321,7 +1321,7 @@ def test_search_survives_tree_rebuild():
 
 
 def test_selected_device_is_highlighted():
-    from widgets import DeviceGraphicsItem
+    from contur.ui.widgets import DeviceGraphicsItem
 
     window = _fill_two_groups(_window())
     item = window.device_tree.topLevelItem(0).child(0)
@@ -1334,7 +1334,7 @@ def test_selected_device_is_highlighted():
 
 
 def test_highlight_survives_redraw():
-    from widgets import DeviceGraphicsItem
+    from contur.ui.widgets import DeviceGraphicsItem
 
     window = _fill_two_groups(_window())
     window.on_tree_item_clicked(window.device_tree.topLevelItem(0).child(0), 0)
@@ -1392,8 +1392,8 @@ def test_settings_survive_restart():
     window.show_device_names.setChecked(False)
     window._save_settings()
 
-    import xml_viewer
-    fresh = xml_viewer.DeviceVisualizer()
+    from contur.ui import main_window
+    fresh = main_window.DeviceVisualizer()
     assert fresh.detection_profile.currentData() == "accurate", "профиль не запомнился"
     assert fresh.contour_alpha.value() == 123, "прозрачность не запомнилась"
     assert not fresh.show_device_names.isChecked(), "флажок подписей не запомнился"
@@ -1429,12 +1429,12 @@ def test_session_is_offered_not_opened():
     try:
         settings.save_session([], None, str(pdf), 3)
 
-        import xml_viewer
+        from contur.ui import main_window
         opened = []
-        original = xml_viewer.DeviceVisualizer._open_pdf
-        xml_viewer.DeviceVisualizer._open_pdf = lambda self, p, page=None: opened.append(p)
+        original = main_window.DeviceVisualizer._open_pdf
+        main_window.DeviceVisualizer._open_pdf = lambda self, p, page=None: opened.append(p)
         try:
-            fresh = xml_viewer.DeviceVisualizer()
+            fresh = main_window.DeviceVisualizer()
             assert fresh.session_bar.isVisible() or fresh.session_bar.text(), \
                 "полоска предложения не появилась"
             assert "лист 4" in fresh.session_bar.text(), \
@@ -1444,7 +1444,7 @@ def test_session_is_offered_not_opened():
             fresh._restore_last_session()
             assert opened == [str(pdf)], "нажатие «Открыть» не загрузило файл"
         finally:
-            xml_viewer.DeviceVisualizer._open_pdf = original
+            main_window.DeviceVisualizer._open_pdf = original
     finally:
         pdf.unlink(missing_ok=True)
         settings.storage().clear()
@@ -1473,7 +1473,7 @@ def test_recent_menus_call_their_own_handler():
     window = _window()
 
     settings.remember_recent("pdf", str(Path(__file__).resolve()))
-    settings.remember_recent("lua", str(Path(__file__).resolve().parent.parent / "config.py"))
+    settings.remember_recent("lua", str(Path(__file__).resolve().parent.parent / "contur" / "core" / "config.py"))
 
     called = []
     window._open_recent_pdf = lambda path: called.append(("pdf", path))
@@ -1506,7 +1506,7 @@ def test_drop_recognises_file_types():
 def test_layers_can_be_hidden():
     # Раньше переключатели отображения жили в отдельном окне настроек,
     # куда за ними приходилось ходить
-    from widgets import DeviceGraphicsItem
+    from contur.ui.widgets import DeviceGraphicsItem
 
     window = _fill(_window())
     scene = window.graphics_view._scene
@@ -1562,7 +1562,7 @@ def test_page_titles_are_readable():
     # Страницу спрашивали числом: в файле на 265 листов надо было помнить,
     # что именно на каком
     import fitz
-    from workers import PageTitlesThread
+    from contur.ui.workers import PageTitlesThread
 
     pdf = config.INPUT_DIR / "test1" / "BN1-МОЛОКОХРАНИЛИЩЕ-2025Full.pdf"
     if not pdf.exists():
@@ -1580,9 +1580,9 @@ def test_page_titles_are_readable():
 
 def test_page_navigation_knows_its_limits():
     window = _window()
-    import xml_viewer
+    from contur.ui import main_window
 
-    scheme = xml_viewer.LoadedScheme(pdf_path="C:/x/схема.pdf", page=0, total_pages=3)
+    scheme = main_window.LoadedScheme(pdf_path="C:/x/схема.pdf", page=0, total_pages=3)
     window.schemes = [scheme]
     window.active_scheme = scheme
     window._refresh_page_controls()

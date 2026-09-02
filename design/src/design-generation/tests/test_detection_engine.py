@@ -19,9 +19,9 @@ from unittest import mock
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-import config
-import console_utils  # noqa: F401  (кодировка вывода, как в точках входа)
-from pdf_processor import DeviceDetector
+from contur.core import config
+from contur.core import console_utils  # noqa: F401  (кодировка вывода, как в точках входа)
+from contur.pdf.pdf_processor import DeviceDetector
 
 
 def _with(engine="auto", openvino_installed=True, exported=True):
